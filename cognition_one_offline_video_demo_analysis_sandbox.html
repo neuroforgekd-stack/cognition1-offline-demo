@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conversation Analysis — Sandbox (v2 style)</title>
+  <style>
+    :root{ --bg:#030315; --accent:#0d84ff; --warn:#ff6b6b; }
+    html,body{ height:100%; }
+    body{ margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#04051a 0%,#020113 100%); color:#fff; display:flex; align-items:center; justify-content:center; padding:28px; }
+    .wrap{ width:100%; max-width:960px; }
+    .top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+    .brand{ font-weight:700; letter-spacing:.3px; }
+    .muted{ color:rgba(255,255,255,.72); font-size:13px; }
+
+    .v2Card{ background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.04); border-radius:14px; padding:18px; display:flex; gap:16px; align-items:center; }
+    .ring{ width:120px; height:120px; border-radius:999px; display:flex; align-items:center; justify-content:center; background:conic-gradient(var(--accent) calc(var(--pct)*1%), rgba(255,255,255,0.06) 0); transition: background 320ms ease, transform 320ms ease; }
+    .dot{ width:22px; height:22px; border-radius:999px; background:var(--accent); box-shadow:0 8px 28px rgba(13,132,255,0.12); }
+    .v2Text{ flex:1; }
+    .v2State{ font-weight:800; font-size:18px; }
+    .v2Sub{ color:rgba(255,255,255,.68); font-size:13px; margin-top:6px; }
+
+    .analysis{ margin-top:10px; }
+    .analysis .headline{ font-weight:800; font-size:16px; }
+    .analysis .why{ color:rgba(255,255,255,.72); margin-top:8px; font-size:13px; }
+    .analysis ul{ margin:8px 0 0 18px; padding:0; line-height:1.6; }
+
+    .controls{ margin-top:18px; display:grid; gap:10px; }
+    .row{ display:flex; gap:10px; align-items:center; }
+    input[type=range]{ width:360px; }
+    select,input{ background:#060616; color:#fff; border:1px solid rgba(255,255,255,.04); padding:8px 10px; border-radius:8px; }
+
+    .riskPulse{ animation: pulseRing 420ms ease; }
+    @keyframes pulseRing{ 0%{ transform:scale(1); } 50%{ transform:scale(1.04); } 100%{ transform:scale(1); } }
+
+    @media (max-width:720px){ .ring{ width:96px;height:96px } input[type=range]{ width:220px } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><div class="brand">Conversation Analysis — Sandbox</div><div class="muted">v2 preview + tuning</div></div>
+
+    <div class="v2Card" id="analysisCard">
+      <div class="ring" id="v2Ring" style="--pct:0">
+        <div class="dot" id="v2Dot"></div>
+      </div>
+      <div class="v2Text">
+        <div class="v2State" id="insightHeadline">Baseline stable</div>
+        <div class="v2Sub" id="insightConfidence">Confidence —</div>
+        <div class="analysis">
+          <div class="why" id="insightWhy">Waiting for signal change…</div>
+          <ul id="insightBullets"><li>Monitoring mic + motion + integrity</li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row"><label class="muted">Mic</label><input id="s_mic" type="range" min="0" max="1" step="0.01" value="0.2"><div class="muted" id="s_mic_val">0.20</div></div>
+      <div class="row"><label class="muted">Motion</label><input id="s_motion" type="range" min="0" max="1" step="0.01" value="0.18"><div class="muted" id="s_motion_val">0.18</div></div>
+      <div class="row"><label class="muted">Integrity</label><input id="s_integrity" type="range" min="0" max="1" step="0.01" value="1"><div class="muted" id="s_integrity_val">1.00</div></div>
+      <div class="row"><label class="muted">Risk smooth</label><input id="s_risk" type="range" min="0" max="1" step="0.01" value="0"><div class="muted" id="s_risk_val">0.00</div></div>
+      <div class="row"><label class="muted">Scenario</label>
+        <select id="s_scn">
+          <option value="neutral">Neutral</option>
+          <option value="negotiation">Negotiation</option>
+          <option value="phone-call">Phone Call</option>
+          <option value="coffee">Coffee</option>
+          <option value="street">Street</option>
+          <option value="high-pressure">High Pressure</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const SCENARIOS = [
+    { key:"neutral",      title:"Neutral",         sub:"Baseline",                 bias:0.00 },
+    { key:"negotiation",  title:"Negotiation",     sub:"Pressure + framing",       bias:0.08 },
+    { key:"phone-call",   title:"Phone Call",      sub:"Timeline variance",        bias:0.06 },
+    { key:"coffee",       title:"Coffee",          sub:"Mismatch cues",            bias:0.04 },
+    { key:"street",       title:"Street",          sub:"Unknown approach risk",    bias:0.10 },
+    { key:"high-pressure",title:"High Pressure",   sub:"Aggressive tactics",       bias:0.14 },
+  ];
+  function clamp01(n){ return Math.max(0, Math.min(1, n)); }
+  function getScenario(k){ return SCENARIOS.find(s=>s.key===k) || SCENARIOS[0]; }
+
+  let micLevel = 0.2;
+  let motionLevel = 0.18;
+  let integrity = 1;
+  let riskSmooth = 0;
+  let state = { ui: { scenario: 'neutral' } };
+
+  let lastHeadline = null;
+  let lastBulletsHtml = null;
+  let _insightPulseTimeout = null;
+
+  function riskColor(score){
+    if(score >= 0.75) return { color: '#ff6b6b' };
+    if(score >= 0.50) return { color: '#ffb86b' };
+    if(score >= 0.25) return { color: '#ffd36b' };
+    return { color: '#0d84ff' };
+  }
+
+  function updateV2Ring(){
+    const ring = document.getElementById('v2Ring');
+    const dot = document.getElementById('v2Dot');
+    if(!ring || !dot) return;
+    const pct = Math.round(riskSmooth * 100);
+    ring.style.setProperty('--pct', pct + '%');
+    const c = riskColor(riskSmooth).color;
+    ring.style.background = `conic-gradient(${c} ${pct}%, rgba(255,255,255,0.06) 0)`;
+    dot.style.background = c;
+    // subtle pulse when transitioning into non-clear
+    if(riskSmooth >= 0.25){ ring.classList.add('riskPulse'); clearTimeout(ring._t); ring._t = setTimeout(()=>ring.classList.remove('riskPulse'), 420); }
+  }
+
+  function renderInsights(){
+    const scn = getScenario(state.ui.scenario);
+    const conf = clamp01((riskSmooth * 0.7) + (integrity * 0.3));
+    const confPct = Math.round(conf * 100);
+
+    const headlineEl = document.getElementById("insightHeadline");
+    const whyEl = document.getElementById("insightWhy");
+    const confEl = document.getElementById("insightConfidence");
+    const bulletsEl = document.getElementById("insightBullets");
+    if(!headlineEl || !whyEl || !confEl || !bulletsEl) return;
+
+    confEl.textContent = `Confidence ${confPct}%`;
+
+    const micHot = micLevel > 0.55;
+    const micWarm = micLevel > 0.35;
+    const motHot = motionLevel > 0.55;
+    const motWarm = motionLevel > 0.35;
+    const integrityBad = integrity < 0.5;
+
+    const scenarioCue =
+      scn.key === "phone-call" ? "Timeline inconsistency cue" :
+      scn.key === "coffee" ? "Emotional mismatch cue" :
+      scn.key === "negotiation" ? "Pressure / framing cue" :
+      scn.key === "street" ? "Unknown approach cue" :
+      scn.key === "high-pressure" ? "Aggressive tactic cue" :
+      "Baseline cue";
+
+    let headline = "Baseline stable";
+    if (riskSmooth >= 0.75) headline = "High risk — de-escalate + verify";
+    else if (riskSmooth >= 0.50) headline = "Elevated risk — ask clarifying question";
+    else if (riskSmooth >= 0.25) headline = "Watch mode — subtle pressure detected";
+    headlineEl.textContent = headline;
+
+    const whyParts = [];
+    if (micHot) whyParts.push("voice intensity spike");
+    else if (micWarm) whyParts.push("voice intensity rising");
+    if (motHot) whyParts.push("rapid movement / agitation");
+    else if (motWarm) whyParts.push("movement increasing");
+    if (integrityBad) whyParts.push("sensor integrity low");
+    whyParts.push(scenarioCue.toLowerCase());
+
+    whyEl.textContent = `Reason: ${whyParts.join(" • ")}`;
+
+    const bullets = [];
+    bullets.push(integrityBad
+      ? "Integrity warning: signals may be incomplete (check permissions)."
+      : "Integrity OK: live signals are present."
+    );
+
+    if (riskSmooth >= 0.75) {
+      bullets.push("Action: pause, breathe, and demand specifics (who/what/when).");
+      bullets.push("Action: verify claims with a second channel (text/email).");
+    } else if (riskSmooth >= 0.50) {
+      bullets.push("Action: ask one clarifying question and re-check consistency.");
+      bullets.push("Action: slow the pace; don’t accept rushed decisions.");
+    } else if (riskSmooth >= 0.25) {
+      bullets.push("Action: stay neutral; watch for pattern shifts.");
+      bullets.push("Action: keep boundaries and ask for details.");
+    } else {
+      bullets.push("Action: continue normally; maintain awareness.");
+      bullets.push("Action: keep notes if stakes are high.");
+    }
+
+    bullets.push(`Context cue: ${scenarioCue}.`);
+    const bulletsHtml = bullets.map(b => `<li>${b}</li>`).join("");
+    bulletsEl.innerHTML = bulletsHtml;
+
+    // pulse card only when content changes
+    try{
+      const card = document.getElementById("analysisCard");
+      const headlineChanged = lastHeadline !== headlineEl.textContent;
+      const bulletsChanged = lastBulletsHtml !== bulletsHtml;
+      if((headlineChanged || bulletsChanged) && card){
+        card.classList.add("pulse");
+        if(_insightPulseTimeout) clearTimeout(_insightPulseTimeout);
+        _insightPulseTimeout = setTimeout(()=>{ card.classList.remove("pulse"); _insightPulseTimeout = null; }, 320);
+      }
+      lastHeadline = headlineEl.textContent;
+      lastBulletsHtml = bulletsHtml;
+    }catch(e){}
+
+    // update v2 ring
+    updateV2Ring();
+  }
+
+  // hookup controls
+  const s_mic = document.getElementById('s_mic');
+  const s_motion = document.getElementById('s_motion');
+  const s_integrity = document.getElementById('s_integrity');
+  const s_risk = document.getElementById('s_risk');
+  const s_scn = document.getElementById('s_scn');
+  const s_mic_val = document.getElementById('s_mic_val');
+  const s_motion_val = document.getElementById('s_motion_val');
+  const s_integrity_val = document.getElementById('s_integrity_val');
+  const s_risk_val = document.getElementById('s_risk_val');
+
+  function updateFromControls(){
+    micLevel = parseFloat(s_mic.value);
+    motionLevel = parseFloat(s_motion.value);
+    integrity = parseFloat(s_integrity.value);
+    riskSmooth = parseFloat(s_risk.value);
+    state.ui.scenario = s_scn.value;
+    s_mic_val.textContent = micLevel.toFixed(2);
+    s_motion_val.textContent = motionLevel.toFixed(2);
+    s_integrity_val.textContent = integrity.toFixed(2);
+    s_risk_val.textContent = riskSmooth.toFixed(2);
+    renderInsights();
+  }
+
+  [s_mic,s_motion,s_integrity,s_risk,s_scn].forEach(el=>el.addEventListener('input', updateFromControls));
+
+  // initial render
+  renderInsights();
+</script>
+</body>
+</html>

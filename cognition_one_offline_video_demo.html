@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cognition One — Offline Video Demo (Single HTML)</title>
+  <style>
+    :root{
+      --bg0:#0a0a0a;
+      --bg1:#111;
+      --card: rgba(255,255,255,.06);
+      --border: rgba(255,255,255,.12);
+      --muted: rgba(255,255,255,.72);
+      --muted2: rgba(255,255,255,.55);
+      --blue: rgba(0,112,243,.95);
+      --blue2: rgba(0,112,243,.25);
+      --shadow: 0 14px 44px rgba(0,0,0,.42);
+      --r: 18px;
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      font-family: var(--font);
+      color:#fff;
+      background: linear-gradient(180deg, var(--bg0), var(--bg1));
+      min-height: 100vh;
+    }
+    .page{
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 18px 46px;
+    }
+    .hdr{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:12px;
+    }
+    .brand{ font-size:13px; letter-spacing:.6px; opacity:.86; }
+    .title{ font-size:28px; font-weight: 850; margin-top:2px; }
+    .sub{ margin-top:6px; opacity:.82; line-height:1.5; }
+    .watermark{
+      text-align:right;
+      font-size:12px;
+      opacity:.85;
+      line-height:1.35;
+    }
+    .row{ display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card h3{
+      margin:0 0 10px 0;
+      font-size: 15px;
+      font-weight: 850;
+    }
+    .muted{ font-size:12px; opacity:.75; }
+    .btnrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+    button{
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor:pointer;
+      font-weight: 750;
+      letter-spacing: .2px;
+      color:#fff;
+    }
+    .btn{
+      background: var(--blue);
+      border: 1px solid var(--blue);
+    }
+    .ghost{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.14);
+    }
+    input[type="text"], textarea, select{
+      width:100%;
+      background: rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.14);
+      color:#fff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      outline:none;
+      font-family: var(--font);
+    }
+    textarea{ min-height: 110px; resize: vertical; }
+    .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .grid2tight{ display:grid; grid-template-columns: 1fr auto; gap:10px; }
+    .mini{
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.10);
+    }
+    .bar{
+      height:10px;
+      background: rgba(255,255,255,.10);
+      border-radius: 999px;
+      overflow:hidden;
+      margin-top:8px;
+    }
+    .fill{ height:100%; width:0%; background: var(--blue); }
+    .riskCard{
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.10);
+      transition: box-shadow 320ms ease-out, border-color 320ms ease-out;
+    }
+
+    .riskCard.pulse{
+      border-color: rgba(0,112,243,0.95);
+      box-shadow: 0 10px 40px rgba(0,112,243,0.55), 0 0 32px rgba(0,112,243,0.18);
+    }
+
+    #insightHeadline{ display:inline-block; transition: transform 180ms ease-out, opacity 180ms ease-out; transform: translateY(0); opacity:1; }
+    .headline-enter{ transform: translateY(8px); opacity:0; }
+    .riskTop{ display:flex; justify-content:space-between; align-items:baseline; }
+    .lightRow{ display:flex; gap:10px; align-items:center; margin-top:10px; }
+    .dot{
+      width:14px; height:14px; border-radius: 999px;
+      background:#1DB954;
+      box-shadow: 0 0 18px #1DB954;
+    }
+    .riskLabel{ font-weight: 850; letter-spacing: .6px; }
+    .scenarioRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .pill{
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      cursor:pointer;
+      font-weight: 750;
+      color:#fff;
+    }
+    .pill.active{
+      border-color: rgba(0,112,243,.95);
+      background: rgba(0,112,243,.20);
+    }
+    .slider{
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.10);
+    }
+    .sliderTop{ display:flex; justify-content:space-between; align-items:baseline; }
+    input[type="range"]{ width:100%; margin-top:10px; }
+    .footer{ margin-top:16px; text-align:center; font-size:12px; opacity:.75; }
+    .warn{ color:#FF8C42; margin-top:10px; }
+    .ok{ color:#7CFFB2; margin-top:10px; }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.14);
+      margin-left: 6px;
+      opacity:.9;
+    }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      opacity:.85;
+    }
+    .smallNote{ font-size:12px; opacity:.75; line-height:1.6; }
+    .split3{ display:grid; grid-template-columns: 160px 1fr 70px; gap:10px; align-items:center; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hdr">
+      <div>
+        <div class="brand">NEUROFORGE</div>
+        <div class="title">Cognition One<span style="opacity:.7">™</span> <span style="font-size:14px; opacity:.75; font-weight:800">Offline Video Demo</span></div>
+        <div class="sub">Single HTML file • Designed for video development • No backend • No uploads • No recording</div>
+      </div>
+      <div class="watermark" id="wm"></div>
+    </div>
+
+    <!-- INVITE GATE -->
+    <div class="card" id="gate" style="margin-top:18px;">
+      <h3>Enter invite code</h3>
+      <div class="grid2tight">
+        <input id="inviteInput" type="text" placeholder="C1-XXXX-7D" />
+        <button class="btn" id="activateBtn">Activate</button>
+      </div>
+      <div class="muted" style="margin-top:10px;">Access expires 7 days after activation.</div>
+      <div class="smallNote" style="margin-top:14px;">
+        Tip: This file is meant for <b>offline visual testing</b>. Camera/mic often require <b>https</b> or <b>http://localhost</b> (secure context). For video dev you can use <b>Simulate</b> mode and never touch sensors.
+        <span class="kbd">Simulate</span> works anywhere (even file://).
+      </div>
+      <div class="muted" style="margin-top:12px;">
+        Test codes:
+        <span class="mono">C1-ALPHA-7D</span>, <span class="mono">C1-LAW-7D</span>, <span class="mono">C1-EXEC-7D</span>, <span class="mono">C1-BETA-7D</span>
+      </div>
+      <div class="warn" id="inviteErr" style="display:none;"></div>
+    </div>
+
+    <!-- MAIN -->
+    <div id="main" style="display:none;">
+      <div class="row">
+        <div class="card" style="flex:1 1 420px; position:relative;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0;">Live Inputs</h3>
+            <div class="muted" id="permText">Sensors: off</div>
+          </div>
+
+          <div class="grid2" style="margin-top:10px;">
+            <div class="mini" style="min-height: 180px; display:grid; place-items:center; position:relative; overflow:hidden;">
+              <video id="vid" playsinline muted style="width:100%; height:100%; object-fit:cover; display:none;"></video>
+              <div id="vidPlaceholder" style="text-align:center; opacity:.85;">
+                <div style="font-weight:800;">Camera preview</div>
+                <div class="muted">Optional (needs localhost/https)</div>
+              </div>
+            </div>
+
+            <div style="display:grid; gap:10px;">
+              <div class="mini">
+                <div style="display:flex; justify-content:space-between;">
+                  <div style="font-weight:800;">Mic level</div>
+                  <div class="muted" id="micPct">0%</div>
+                </div>
+                <div class="bar"><div class="fill" id="micFill"></div></div>
+              </div>
+
+              <div class="mini">
+                <div style="display:flex; justify-content:space-between;">
+                  <div style="font-weight:800;">Motion</div>
+                  <div class="muted" id="motPct">0%</div>
+                </div>
+                <div class="bar"><div class="fill" id="motFill" style="opacity:.7;"></div></div>
+              </div>
+
+              <div class="mini">
+                <div style="display:flex; justify-content:space-between;">
+                  <div style="font-weight:800;">Integrity</div>
+                  <div class="muted" id="intPct">0%</div>
+                </div>
+                <div class="bar"><div class="fill" id="intFill" style="background: rgba(255,255,255,.85);"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="btnrow">
+            <button class="btn" id="simBtn">Start simulate</button>
+            <button class="ghost" id="sensorBtn">Try sensors</button>
+            <button class="ghost" id="shareToggle">Demo share</button>
+            <button class="ghost" id="resetBtn">Reset local</button>
+            <div class="muted" style="margin-left:auto;">Video dev mode • local-only</div>
+          </div>
+
+          <div class="smallNote" id="sensorMsg" style="margin-top:10px;"></div>
+          <canvas id="cv" style="display:none;"></canvas>
+        </div>
+
+        <div class="card" style="flex:1 1 320px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0;">Cognitive Risk</h3>
+            <div class="muted" id="rawText">raw 0.000 • smooth 0.000</div>
+          </div>
+
+          <div style="display:grid; gap:12px; margin-top:12px;">
+            <div class="riskCard">
+              <div class="riskTop">
+                <div class="muted">Risk Light</div>
+                <div class="muted" id="riskPct">0%</div>
+              </div>
+              <div class="lightRow">
+                <div class="dot" id="dot"></div>
+                <div class="riskLabel" id="riskLabel">GREEN</div>
+                <div class="muted" style="margin-left:auto;" id="scnTitle">Neutral</div>
+              </div>
+              <div class="bar" style="margin-top:10px;">
+                <div class="fill" id="riskFill" style="background:#1DB954;"></div>
+              </div>
+            </div>
+
+            <div class="riskCard">
+              <div class="muted" style="margin-bottom:8px;">Breakdown</div>
+              <div style="display:grid; gap:8px;">
+                <div class="split3">
+                  <div style="opacity:.82;">Mic</div>
+                  <div class="bar" style="height:8px; margin:0;"><div class="fill" id="bMic" style="height:100%; background: rgba(255,255,255,.75);"></div></div>
+                  <div class="muted" id="bMicT" style="text-align:right;">+0.000</div>
+                </div>
+                <div class="split3">
+                  <div style="opacity:.82;">Motion</div>
+                  <div class="bar" style="height:8px; margin:0;"><div class="fill" id="bMot" style="height:100%; background: rgba(255,255,255,.75);"></div></div>
+                  <div class="muted" id="bMotT" style="text-align:right;">+0.000</div>
+                </div>
+                <div class="split3">
+                  <div style="opacity:.82;">Integrity penalty</div>
+                  <div class="bar" style="height:8px; margin:0;"><div class="fill" id="bInt" style="height:100%; background: rgba(255,255,255,.75);"></div></div>
+                  <div class="muted" id="bIntT" style="text-align:right;">+0.000</div>
+                </div>
+                <div class="split3">
+                  <div style="opacity:.82;">Scenario bias</div>
+                  <div class="bar" style="height:8px; margin:0;"><div class="fill" id="bScn" style="height:100%; background: rgba(255,255,255,.75);"></div></div>
+                  <div class="muted" id="bScnT" style="text-align:right;">+0.000</div>
+                </div>
+              </div>
+              <div class="muted" style="margin-top:10px;">For video testing, simulate mode is enough.</div>
+            </div>
+            
+            <div class="riskCard" id="analysisCard">
+              <div class="muted" style="margin-bottom:8px;">Conversation Analysis</div>
+
+              <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                <div id="insightHeadline" style="font-weight:850; letter-spacing:.2px;">Baseline stable</div>
+                <div class="muted" id="insightConfidence">Confidence: —</div>
+              </div>
+
+              <div class="smallNote" id="insightWhy" style="margin-top:10px;">
+                Waiting for signal change…
+              </div>
+
+              <div style="margin-top:10px;">
+                <ul id="insightBullets" style="margin:0; padding-left:18px; line-height:1.7; opacity:.9;">
+                  <li>Monitoring mic + motion + integrity</li>
+                </ul>
+              </div>
+
+              <div class="muted" style="margin-top:10px;">
+                Note: Offline demo uses behavioral signals (not speech content).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario + controls -->
+      <div class="row">
+        <div class="card" style="flex:1 1 420px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <h3 style="margin:0;">Scenario</h3>
+            <div class="muted" id="scnSub">Baseline</div>
+          </div>
+          <div class="scenarioRow" id="scenarioRow"></div>
+          <div class="muted" style="margin-top:12px;">Scenario adds a small bias to simulate context (no “secret sauce”).</div>
+          <div style="margin-top:12px;">
+            <textarea id="notes" placeholder="Optional: notes for this run (local only)"></textarea>
+          </div>
+        </div>
+
+        <div class="card" style="flex:1 1 520px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <h3 style="margin:0;">Coupling Controls</h3>
+            <div class="muted">Weights + gains + smoothing</div>
+          </div>
+
+          <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+            <div class="slider">
+              <div class="sliderTop"><div style="font-weight:800;">Mic weight</div><div class="muted" id="v_micWeight">0.45</div></div>
+              <input id="micWeight" type="range" min="0" max="1" step="0.01" />
+            </div>
+            <div class="slider">
+              <div class="sliderTop"><div style="font-weight:800;">Motion weight</div><div class="muted" id="v_motionWeight">0.45</div></div>
+              <input id="motionWeight" type="range" min="0" max="1" step="0.01" />
+            </div>
+            <div class="slider">
+              <div class="sliderTop"><div style="font-weight:800;">Integrity weight</div><div class="muted" id="v_integrityWeight">0.35</div></div>
+              <input id="integrityWeight" type="range" min="0" max="1" step="0.01" />
+            </div>
+            <div class="slider">
+              <div class="sliderTop"><div style="font-weight:800;">Smoothing</div><div class="muted" id="v_smoothing">0.18</div></div>
+              <input id="smoothing" type="range" min="0" max="0.45" step="0.01" />
+            </div>
+            <div class="slider">
+              <div class="sliderTop"><div style="font-weight:800;">Mic gain</div><div class="muted" id="v_micGain">1.30</div></div>
+              <input id="micGain" type="range" min="0.5" max="3" step="0.01" />
+            </div>
+            <div class="slider">
+              <div class="sliderTop"><div style="font-weight:800;">Motion gain</div><div class="muted" id="v_motionGain">1.20</div></div>
+              <input id="motionGain" type="range" min="0.5" max="3" step="0.01" />
+            </div>
+            <div class="slider">
+              <div class="sliderTop"><div style="font-weight:800;">Scenario bias (manual)</div><div class="muted" id="v_scenarioBias">0.00</div></div>
+              <input id="scenarioBias" type="range" min="-0.25" max="0.25" step="0.01" />
+            </div>
+
+            <div class="mini">
+              <div style="font-weight:800;">Quick actions</div>
+              <div class="btnrow" style="margin-top:10px;">
+                <button class="ghost" id="resetControls">Reset controls</button>
+                <button class="ghost" id="recheckIntegrity">Re-evaluate integrity</button>
+              </div>
+              <div class="muted" style="margin-top:10px;">Integrity is 1 when sensors are running; otherwise 0.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Share panel -->
+      <div class="card" id="sharePanel" style="display:none; margin-top:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline;">
+          <h3 style="margin:0;">Demo Share Mode</h3>
+          <div class="muted">Export/import client state (local only)</div>
+        </div>
+        <div class="btnrow" style="margin-top:10px;">
+          <button class="btn" id="exportBtn">Export state</button>
+          <button class="ghost" id="importBtn">Import state</button>
+          <button class="ghost" id="copyBtn">Copy JSON</button>
+          <div class="muted" id="shareMsg" style="margin-left:8px;"></div>
+        </div>
+        <div style="margin-top:10px;">
+          <textarea id="shareText" placeholder="Paste exported JSON here..."></textarea>
+        </div>
+      </div>
+
+      <div class="footer">Cognition One™ — Offline Video Demo • No recording • No uploads • For visual prototyping</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const LS_SESSION = "c1_video_demo_session_v1";
+  const LS_FEEDBACK = "c1_video_demo_feedback_v1";
+  const INVITES = [
+    { code: "C1-ALPHA-7D", testerId: "ALPHA-001", label: "Alpha Tester" },
+    { code: "C1-LAW-7D", testerId: "LAW-014", label: "Legal Pilot" },
+    { code: "C1-EXEC-7D", testerId: "EXEC-022", label: "Exec Reminder" },
+    { code: "C1-BETA-7D", testerId: "BETA-090", label: "Beta Access" },
+  ];
+
+  const DEFAULT_CONTROLS = {
+    micWeight: 0.45,
+    motionWeight: 0.45,
+    integrityWeight: 0.35,
+    smoothing: 0.18,
+    micGain: 1.30,
+    motionGain: 1.20,
+    scenarioBias: 0.00,
+  };
+
+  const SCENARIOS = [
+    { key:"neutral",      title:"Neutral",         sub:"Baseline",                 bias:0.00 },
+    { key:"negotiation",  title:"Negotiation",     sub:"Pressure + framing",       bias:0.08 },
+    { key:"phone-call",   title:"Phone Call",      sub:"Timeline variance",        bias:0.06 },
+    { key:"coffee",       title:"Coffee",          sub:"Mismatch cues",            bias:0.04 },
+    { key:"street",       title:"Street",          sub:"Unknown approach risk",    bias:0.10 },
+    { key:"high-pressure",title:"High Pressure",   sub:"Aggressive tactics",       bias:0.14 },
+  ];
+
+  function clamp01(n){ return Math.max(0, Math.min(1, n)); }
+  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return ""+ts; } }
+  function daysLeft(ms){ return Math.max(0, Math.round(ms/(1000*60*60*24))); }
+
+  function riskColor(score){
+    if(score < 0.25) return {label:"GREEN", color:"#1DB954"};
+    if(score < 0.50) return {label:"YELLOW", color:"#F5C542"};
+    if(score < 0.75) return {label:"ORANGE", color:"#FF8C42"};
+    return {label:"RED", color:"#FF3B30"};
+  }
+
+  function getScenario(key){
+    return SCENARIOS.find(s => s.key === key) || SCENARIOS[0];
+  }
+
+  const gate = document.getElementById("gate");
+  const main = document.getElementById("main");
+  const wm = document.getElementById("wm");
+  const inviteInput = document.getElementById("inviteInput");
+  const activateBtn = document.getElementById("activateBtn");
+  const inviteErr = document.getElementById("inviteErr");
+
+  const permText = document.getElementById("permText");
+  const simBtn = document.getElementById("simBtn");
+  const sensorBtn = document.getElementById("sensorBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const sensorMsg = document.getElementById("sensorMsg");
+
+  const micPct = document.getElementById("micPct");
+  const motPct = document.getElementById("motPct");
+  const intPct = document.getElementById("intPct");
+  const micFill = document.getElementById("micFill");
+  const motFill = document.getElementById("motFill");
+  const intFill = document.getElementById("intFill");
+
+  const rawText = document.getElementById("rawText");
+  const riskPct = document.getElementById("riskPct");
+  const riskFill = document.getElementById("riskFill");
+  const dot = document.getElementById("dot");
+  const riskLabel = document.getElementById("riskLabel");
+
+  const scnTitle = document.getElementById("scnTitle");
+  const scnSub = document.getElementById("scnSub");
+  const scenarioRow = document.getElementById("scenarioRow");
+  const notesEl = document.getElementById("notes");
+
+  const shareToggle = document.getElementById("shareToggle");
+  const sharePanel = document.getElementById("sharePanel");
+  const shareText = document.getElementById("shareText");
+  const exportBtn = document.getElementById("exportBtn");
+  const importBtn = document.getElementById("importBtn");
+  const copyBtn = document.getElementById("copyBtn");
+  const shareMsg = document.getElementById("shareMsg");
+
+  const controls = {
+    micWeight: document.getElementById("micWeight"),
+    motionWeight: document.getElementById("motionWeight"),
+    integrityWeight: document.getElementById("integrityWeight"),
+    smoothing: document.getElementById("smoothing"),
+    micGain: document.getElementById("micGain"),
+    motionGain: document.getElementById("motionGain"),
+    scenarioBias: document.getElementById("scenarioBias"),
+  };
+  const controlVals = {
+    micWeight: document.getElementById("v_micWeight"),
+    motionWeight: document.getElementById("v_motionWeight"),
+    integrityWeight: document.getElementById("v_integrityWeight"),
+    smoothing: document.getElementById("v_smoothing"),
+    micGain: document.getElementById("v_micGain"),
+    motionGain: document.getElementById("v_motionGain"),
+    scenarioBias: document.getElementById("v_scenarioBias"),
+  };
+  const resetControlsBtn = document.getElementById("resetControls");
+  const recheckIntegrityBtn = document.getElementById("recheckIntegrity");
+
+  const bMic = document.getElementById("bMic");
+  const bMot = document.getElementById("bMot");
+  const bInt = document.getElementById("bInt");
+  const bScn = document.getElementById("bScn");
+  const bMicT = document.getElementById("bMicT");
+  const bMotT = document.getElementById("bMotT");
+  const bIntT = document.getElementById("bIntT");
+  const bScnT = document.getElementById("bScnT");
+
+  const vid = document.getElementById("vid");
+  const vidPlaceholder = document.getElementById("vidPlaceholder");
+  let stream = null;
+  let audioCtx = null;
+  let analyser = null;
+  let rafMic = null;
+  let rafSim = null;
+  let rafMotion = null;
+  const cv = document.getElementById("cv");
+  let lastFrame = null;
+
+  let state = loadSession() || {
+    v: 1,
+    exportedAt: Date.now(),
+    invite: null,
+    controls: {...DEFAULT_CONTROLS},
+    ui: { scenario: "neutral", notes: "" },
+  };
+
+  let micLevel = 0;
+  let motionLevel = 0;
+  let integrity = 0;
+  let riskRaw = 0;
+  let riskSmooth = 0;
+  let lastHeadline = null;
+  let lastBulletsHtml = null;
+  let _insightPulseTimeout = null;
+
+  renderScenarioButtons();
+  hydrateControls();
+  notesEl.value = state.ui.notes || "";
+
+  function showGate(){
+    gate.style.display = "";
+    main.style.display = "none";
+    updateWatermark();
+  }
+
+  function showMain(){
+    gate.style.display = "none";
+    main.style.display = "";
+    updateWatermark();
+    applyScenarioUI();
+  }
+
+  function updateWatermark(){
+    if(!state.invite){
+      wm.innerHTML = `<div class="muted">Local build</div><div class="muted">${fmt(Date.now())}</div>`;
+      return;
+    }
+    const left = daysLeft(state.invite.expiresAt - Date.now());
+    wm.innerHTML = `
+      <div style="opacity:.92;">TESTER ${state.invite.testerId}</div>
+      <div style="opacity:.68;">EXPIRES IN ${left} DAY${left===1?"":"S"}</div>
+      <div style="opacity:.56;">(${fmt(state.invite.expiresAt)})</div>
+    `;
+  }
+
+  function isExpired(){
+    return !!state.invite && Date.now() > state.invite.expiresAt;
+  }
+
+  function renderScenarioButtons(){
+    scenarioRow.innerHTML = "";
+    SCENARIOS.forEach(s => {
+      const b = document.createElement("button");
+      b.className = "pill";
+      b.textContent = s.title;
+      b.onclick = () => { state.ui.scenario = s.key; persist(); applyScenarioUI(); };
+      scenarioRow.appendChild(b);
+    });
+    applyScenarioUI();
+  }
+
+  function applyScenarioUI(){
+    const s = getScenario(state.ui.scenario);
+    scnTitle.textContent = s.title;
+    scnSub.textContent = s.sub;
+    [...scenarioRow.querySelectorAll(".pill")].forEach((el, idx) => {
+      el.classList.toggle("active", SCENARIOS[idx].key === state.ui.scenario);
+    });
+  }
+
+  function hydrateControls(){
+    Object.keys(DEFAULT_CONTROLS).forEach(k => {
+      controls[k].value = state.controls[k];
+      controlVals[k].textContent = (+state.controls[k]).toFixed(2);
+    });
+  }
+
+  function attachControlHandlers(){
+    Object.keys(controls).forEach(k => {
+      controls[k].addEventListener("input", (e) => {
+        const v = parseFloat(e.target.value);
+        state.controls[k] = v;
+        controlVals[k].textContent = v.toFixed(2);
+        persist();
+      });
+    });
+
+    resetControlsBtn.onclick = () => {
+      state.controls = {...DEFAULT_CONTROLS};
+      hydrateControls();
+      persist();
+    };
+
+    recheckIntegrityBtn.onclick = () => {
+      integrity = stream ? 1 : 0;
+      renderLevels();
+      persist();
+    };
+
+    notesEl.addEventListener("input", () => {
+      state.ui.notes = notesEl.value;
+      persist();
+    });
+  }
+
+  function loadSession(){
+    try{
+      const raw = localStorage.getItem(LS_SESSION);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch{ return null; }
+  }
+  function persist(){
+    try{
+      state.exportedAt = Date.now();
+      localStorage.setItem(LS_SESSION, JSON.stringify(state));
+    }catch{}
+  }
+  function clearAll(){
+    try{
+      localStorage.removeItem(LS_SESSION);
+      localStorage.removeItem(LS_FEEDBACK);
+    }catch{}
+  }
+
+  activateBtn.onclick = () => {
+    inviteErr.style.display = "none";
+    const code = (inviteInput.value || "").trim().toUpperCase();
+    const found = INVITES.find(i => i.code.toUpperCase() === code);
+    if(!found){
+      inviteErr.textContent = "Invalid invite code.";
+      inviteErr.style.display = "";
+      return;
+    }
+    const activatedAt = Date.now();
+    const expiresAt = activatedAt + 7*24*60*60*1000;
+
+    state.invite = { testerId: found.testerId, inviteCode: found.code, activatedAt, expiresAt };
+    persist();
+    showMain();
+  };
+
+  shareToggle.onclick = () => {
+    sharePanel.style.display = (sharePanel.style.display === "none" || sharePanel.style.display === "") ? "" : "none";
+    shareMsg.textContent = "";
+  };
+
+  exportBtn.onclick = () => {
+    const payload = {
+      v: 1,
+      exportedAt: Date.now(),
+      invite: state.invite,
+      controls: state.controls,
+      ui: state.ui,
+    };
+    shareText.value = JSON.stringify(payload, null, 2);
+    shareMsg.textContent = "State exported.";
+  };
+
+  importBtn.onclick = () => {
+    shareMsg.textContent = "";
+    try{
+      const parsed = JSON.parse(shareText.value);
+      if(!parsed || parsed.v !== 1) { shareMsg.textContent = "Invalid payload version."; return; }
+      state.invite = parsed.invite || state.invite || null;
+      state.controls = {...DEFAULT_CONTROLS, ...(parsed.controls || {})};
+      state.ui = { scenario: (parsed.ui && parsed.ui.scenario) || "neutral", notes: (parsed.ui && parsed.ui.notes) || "" };
+      notesEl.value = state.ui.notes || "";
+      hydrateControls();
+      applyScenarioUI();
+      persist();
+      shareMsg.textContent = "State imported.";
+    }catch{
+      shareMsg.textContent = "Invalid JSON.";
+    }
+  };
+
+  copyBtn.onclick = async () => {
+    try{
+      await navigator.clipboard.writeText(shareText.value || "");
+      shareMsg.textContent = "Copied.";
+    }catch{
+      shareMsg.textContent = "Copy failed (browser blocked).";
+    }
+  };
+
+  resetBtn.onclick = () => {
+    stopAll();
+    clearAll();
+    state = {
+      v: 1,
+      exportedAt: Date.now(),
+      invite: null,
+      controls: {...DEFAULT_CONTROLS},
+      ui: { scenario:"neutral", notes:"" },
+    };
+    notesEl.value = "";
+    hydrateControls();
+    applyScenarioUI();
+    setLevels(0,0,0);
+    riskRaw = 0; riskSmooth = 0;
+    renderRisk();
+    showGate();
+  };
+
+  let simOn = false;
+  simBtn.onclick = () => {
+    if(simOn){
+      simOn = false;
+      simBtn.textContent = "Start simulate";
+      if(rafSim) cancelAnimationFrame(rafSim);
+      rafSim = null;
+      sensorMsg.textContent = "";
+      setLevels(0,0, integrity);
+      return;
+    }
+    simOn = true;
+    simBtn.textContent = "Stop simulate";
+    sensorMsg.textContent = "Simulating mic + motion (perfect for offline video development).";
+    simLoop();
+  };
+
+  function simLoop(){
+    const t = Date.now() / 1000;
+    const baseMic = 0.20 + 0.18*Math.sin(t*1.8) + 0.06*Math.sin(t*6.2);
+    const baseMot = 0.18 + 0.16*Math.sin(t*1.3 + 1.2) + 0.05*Math.sin(t*4.9);
+    const spike = (Math.sin(t*0.42) > 0.92) ? 0.28 : 0;
+    micLevel = clamp01((baseMic + spike) * state.controls.micGain);
+    motionLevel = clamp01((baseMot + spike*0.7) * state.controls.motionGain);
+    integrity = stream ? 1 : 1;
+
+    renderLevels();
+    computeRisk();
+    rafSim = requestAnimationFrame(simLoop);
+  }
+
+  sensorBtn.onclick = async () => {
+    sensorMsg.textContent = "";
+    if(stream){
+      stopSensors();
+      sensorBtn.textContent = "Try sensors";
+      permText.textContent = "Sensors: off";
+      integrity = 0;
+      renderLevels();
+      computeRisk();
+      return;
+    }
+
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      sensorMsg.textContent = "This browser doesn't support getUserMedia.";
+      return;
+    }
+
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" },
+        audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+      });
+
+      vid.srcObject = stream;
+      vid.style.display = "";
+      vidPlaceholder.style.display = "none";
+      try{ await vid.play(); }catch{}
+
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+
+      sensorBtn.textContent = "Stop sensors";
+      permText.textContent = "Sensors: running";
+      integrity = 1;
+      renderLevels();
+      micLoop();
+      motionLoop();
+      sensorMsg.textContent = "Sensors running. (No recording. No upload.)";
+    }catch(e){
+      sensorMsg.textContent = "Sensors blocked (expected on file://). If you want sensors, serve this file on localhost.";
+    }
+  };
+
+  function micLoop(){
+    if(!analyser) return;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteTimeDomainData(data);
+    let sumSq = 0;
+    for(let i=0;i<data.length;i++){
+      const v = (data[i]-128)/128;
+      sumSq += v*v;
+    }
+    const rms = Math.sqrt(sumSq/data.length);
+    micLevel = clamp01(rms * state.controls.micGain * 2.2);
+    renderLevels();
+    computeRisk();
+    rafMic = requestAnimationFrame(micLoop);
+  }
+
+  function motionLoop(){
+    if(!vid || !stream) return;
+    const ctx = cv.getContext("2d", {willReadFrequently:true});
+    if(!ctx) return;
+
+    const w = 96, h = 54;
+    cv.width = w; cv.height = h;
+    try{
+      ctx.drawImage(vid, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
+      const curr = img.data;
+      if(lastFrame && lastFrame.length === curr.length){
+        let diffSum = 0;
+        const stride = 16;
+        for(let i=0;i<curr.length;i+=stride){
+          const c = (curr[i]+curr[i+1]+curr[i+2])/3;
+          const p = (lastFrame[i]+lastFrame[i+1]+lastFrame[i+2])/3;
+          diffSum += Math.abs(c-p);
+        }
+        const samples = curr.length/stride;
+        const avgDiff = diffSum/samples;
+        motionLevel = clamp01((avgDiff/35) * state.controls.motionGain);
+      }
+      lastFrame = new Uint8ClampedArray(curr);
+    }catch{}
+    renderLevels();
+    computeRisk();
+    rafMotion = requestAnimationFrame(motionLoop);
+  }
+
+  function stopSensors(){
+    if(rafMic) cancelAnimationFrame(rafMic);
+    if(rafMotion) cancelAnimationFrame(rafMotion);
+    rafMic = null; rafMotion = null;
+
+    try{ analyser && analyser.disconnect && analyser.disconnect(); }catch{}
+    analyser = null;
+    try{ audioCtx && audioCtx.close && audioCtx.close(); }catch{}
+    audioCtx = null;
+
+    if(stream){
+      stream.getTracks().forEach(t => t.stop());
+    }
+    stream = null;
+    lastFrame = null;
+
+    vid.srcObject = null;
+    vid.style.display = "none";
+    vidPlaceholder.style.display = "";
+  }
+
+  function stopAll(){
+    if(rafSim) cancelAnimationFrame(rafSim);
+    rafSim = null;
+    simOn = false;
+    simBtn.textContent = "Start simulate";
+    stopSensors();
+  }
+
+  function setLevels(m, mo, it){
+    micLevel = m; motionLevel = mo; integrity = it;
+    renderLevels(); computeRisk();
+  }
+
+  function renderLevels(){
+    micPct.textContent = Math.round(micLevel*100) + "%";
+    motPct.textContent = Math.round(motionLevel*100) + "%";
+    intPct.textContent = Math.round(integrity*100) + "%";
+    micFill.style.width = Math.round(micLevel*100) + "%";
+    motFill.style.width = Math.round(motionLevel*100) + "%";
+    intFill.style.width = Math.round(integrity*100) + "%";
+  }
+
+  function computeRisk(){
+    const c = state.controls;
+    const missingPenalty = clamp01(1 - integrity);
+    const base = clamp01(micLevel)*c.micWeight + clamp01(motionLevel)*c.motionWeight + clamp01(missingPenalty)*c.integrityWeight;
+    const scn = getScenario(state.ui.scenario);
+    const biasCentered = (scn.bias + c.scenarioBias);
+    const raw = clamp01(base + biasCentered);
+
+    riskRaw = raw;
+    const a = clamp01(c.smoothing);
+    riskSmooth = riskSmooth + a*(raw - riskSmooth);
+
+    renderRisk();
+    renderBreakdown();
+  }
+
+  function renderBreakdown(){
+    const c = state.controls;
+    const scn = getScenario(state.ui.scenario);
+    const vMic = micLevel*c.micWeight;
+    const vMot = motionLevel*c.motionWeight;
+    const vInt = (1 - integrity)*c.integrityWeight;
+    const vScn = scn.bias + c.scenarioBias;
+
+    function setBar(el, txtEl, v){
+      const pct = Math.round(clamp01(Math.abs(v))*100);
+      el.style.width = pct + "%";
+      txtEl.textContent = (v<0? "-" : "+") + Math.abs(v).toFixed(3);
+    }
+    setBar(bMic, bMicT, vMic);
+    setBar(bMot, bMotT, vMot);
+    setBar(bInt, bIntT, vInt);
+    setBar(bScn, bScnT, vScn);
+  }
+
+  function renderRisk(){
+    rawText.textContent = `raw ${riskRaw.toFixed(3)} • smooth ${riskSmooth.toFixed(3)}`;
+    riskPct.textContent = Math.round(riskSmooth*100) + "%";
+
+    const rc = riskColor(riskSmooth);
+    riskLabel.textContent = rc.label;
+    riskFill.style.width = Math.round(riskSmooth*100) + "%";
+    riskFill.style.background = rc.color;
+    dot.style.background = rc.color;
+    dot.style.boxShadow = `0 0 18px ${rc.color}`;
+
+    scnTitle.textContent = getScenario(state.ui.scenario).title;
+    renderInsights();
+  }
+
+  function renderInsights(){
+    const scn = getScenario(state.ui.scenario);
+
+    const conf = clamp01((riskSmooth * 0.7) + (integrity * 0.3));
+    const confPct = Math.round(conf * 100);
+
+    const headlineEl = document.getElementById("insightHeadline");
+    const whyEl = document.getElementById("insightWhy");
+    const confEl = document.getElementById("insightConfidence");
+    const bulletsEl = document.getElementById("insightBullets");
+    if(!headlineEl || !whyEl || !confEl || !bulletsEl) return;
+
+    confEl.textContent = `Confidence: ${confPct}%`;
+
+    const micHot = micLevel > 0.55;
+    const micWarm = micLevel > 0.35;
+    const motHot = motionLevel > 0.55;
+    const motWarm = motionLevel > 0.35;
+    const integrityBad = integrity < 0.5;
+
+    const scenarioCue =
+      scn.key === "phone-call" ? "Timeline inconsistency cue" :
+      scn.key === "coffee" ? "Emotional mismatch cue" :
+      scn.key === "negotiation" ? "Pressure / framing cue" :
+      scn.key === "street" ? "Unknown approach cue" :
+      scn.key === "high-pressure" ? "Aggressive tactic cue" :
+      "Baseline cue";
+
+    let headline = "Baseline stable";
+    if (riskSmooth >= 0.75) headline = "High risk — de-escalate + verify";
+    else if (riskSmooth >= 0.50) headline = "Elevated risk — ask clarifying question";
+    else if (riskSmooth >= 0.25) headline = "Watch mode — subtle pressure detected";
+    headlineEl.textContent = headline;
+
+    const whyParts = [];
+    if (micHot) whyParts.push("voice intensity spike");
+    else if (micWarm) whyParts.push("voice intensity rising");
+    if (motHot) whyParts.push("rapid movement / agitation");
+    else if (motWarm) whyParts.push("movement increasing");
+    if (integrityBad) whyParts.push("sensor integrity low");
+    whyParts.push(scenarioCue.toLowerCase());
+
+    whyEl.textContent = `Reason: ${whyParts.join(" • ")}`;
+
+    const bullets = [];
+    bullets.push(integrityBad
+      ? "Integrity warning: signals may be incomplete (check permissions)."
+      : "Integrity OK: live signals are present."
+    );
+
+    if (riskSmooth >= 0.75) {
+      bullets.push("Action: pause, breathe, and demand specifics (who/what/when).");
+      bullets.push("Action: verify claims with a second channel (text/email).");
+    } else if (riskSmooth >= 0.50) {
+      bullets.push("Action: ask one clarifying question and re-check consistency.");
+      bullets.push("Action: slow the pace; don’t accept rushed decisions.");
+    } else if (riskSmooth >= 0.25) {
+      bullets.push("Action: stay neutral; watch for pattern shifts.");
+      bullets.push("Action: keep boundaries and ask for details.");
+    } else {
+      bullets.push("Action: continue normally; maintain awareness.");
+      bullets.push("Action: keep notes if stakes are high.");
+    }
+
+    bullets.push(`Context cue: ${scenarioCue}.`);
+    const bulletsHtml = bullets.map(b => `<li>${b}</li>`).join("");
+    bulletsEl.innerHTML = bulletsHtml;
+
+    // pulse the analysis card when headline or bullets change
+    try{
+      const card = document.getElementById("analysisCard");
+      const headlineChanged = lastHeadline !== headlineEl.textContent;
+      const bulletsChanged = lastBulletsHtml !== bulletsHtml;
+      if((headlineChanged || bulletsChanged) && card){
+        card.classList.add("pulse");
+        if(_insightPulseTimeout) clearTimeout(_insightPulseTimeout);
+        _insightPulseTimeout = setTimeout(()=>{ card.classList.remove("pulse"); _insightPulseTimeout = null; }, 320);
+      }
+      // headline fade/slide: only when actual headline text changed
+      if(headlineChanged){
+        try{
+          headlineEl.classList.add('headline-enter');
+          requestAnimationFrame(()=>{ headlineEl.classList.remove('headline-enter'); });
+        }catch(e){}
+      }
+      lastHeadline = headlineEl.textContent;
+      lastBulletsHtml = bulletsHtml;
+    }catch(e){}
+  }
+
+  attachControlHandlers();
+
+  if(state.invite){
+    showMain();
+    if(isExpired()){
+      sensorMsg.textContent = "Note: session invite is expired, but this offline file stays usable for video development.";
+      sensorMsg.style.opacity = "0.85";
+    }
+  }else{
+    showGate();
+  }
+
+  updateWatermark();
+  renderLevels();
+  computeRisk();
+  setInterval(updateWatermark, 10_000);
+})();
+</script>
+</body>
+</html>

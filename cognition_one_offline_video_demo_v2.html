@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cognition One — Offline Video Demo (v2 Minimal)</title>
+  <style>
+    :root{
+      --bg0:#0b0b0b;
+      --bg1:#0f0f10;
+      --card: rgba(255,255,255,.04);
+      --glass: rgba(255,255,255,.04);
+      --muted: rgba(255,255,255,.68);
+      --accent: rgba(0,112,243,0.95);
+      --accent-soft: rgba(0,112,243,0.14);
+      --r: 14px;
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family:var(--font); color:#fff; background: radial-gradient(circle at 50% 35%, rgba(0,112,243,0.10), transparent 55%),
+          linear-gradient(180deg, #0B0C10 0%, #111318 100%); min-height:100vh; }
+    .page{ max-width:980px; margin:0 auto; padding:28px 18px 46px; }
+    .hdr{ display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .brand{ font-size:13px; letter-spacing:.6px; opacity:.92; }
+    .title{ font-weight:800; font-size:15px; }
+    .watermark{ text-align:right; font-size:12px; opacity:.72; }
+
+    /* v2 shell */
+    .v2Shell{ display:flex; flex-direction:column; align-items:center; gap:18px; }
+    .v2Card{ width:100%; max-width:520px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:18px; padding:28px; border:1px solid rgba(255,255,255,0.04); box-shadow: 0 10px 40px rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
+    .v2Center{ display:grid; place-items:center; gap:14px; text-align:center; }
+
+    /* ring */
+    #v2Ring{ width:220px; height:220px; border-radius:50%; display:grid; place-items:center; background: conic-gradient(var(--accent) 0deg, rgba(255,255,255,0.04) 0deg); position:relative; }
+    #v2Dot{ width:22px; height:22px; border-radius:50%; background:var(--accent); box-shadow:0 0 30px rgba(0,112,243,0.12); }
+    #v2State{ font-weight:800; font-size:18px; margin-top:6px; }
+    #v2Sub{ font-size:13px; color:var(--muted); margin-top:2px; }
+
+    .v2Actions{ display:flex; gap:8px; margin-top:12px; justify-content:center; }
+    .v2Btn{ padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); background:transparent; color:#fff; cursor:pointer; font-weight:700; }
+    .v2Primary{ background:var(--accent); border-color:var(--accent); box-shadow: 0 6px 20px rgba(0,112,243,0.12); }
+    .v2Secondary{ opacity:.9; }
+
+    /* details drawer */
+    #v2Details{ width:100%; max-width:520px; margin-top:10px; overflow:hidden; border-radius:12px; }
+    .v2DetailsInner{ background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.03); padding:14px; border-radius:12px; display:none; }
+    .v2Line{ font-size:13px; color:var(--muted); margin:6px 0; display:flex; justify-content:space-between; }
+    .v2Note{ font-size:12px; color:rgba(255,255,255,0.6); margin-top:8px; }
+
+    /* subtle elevated pulse (respects reduced motion) */
+    @media (prefers-reduced-motion: no-preference){
+      .ring-pulse{ animation: ringPulse 2.2s ease-in-out infinite; }
+      @keyframes ringPulse{ 0%{ box-shadow:0 0 0 0 rgba(0,112,243,0.06);} 50%{ box-shadow:0 0 40px 8px rgba(0,112,243,0.06);} 100%{ box-shadow:0 0 0 0 rgba(0,112,243,0.06);} }
+    }
+
+    /* dev toggles */
+    #v2Version{ font-size:11px; opacity:.6; cursor:pointer; margin-top:10px; text-align:center; }
+    #v2DevPanel{ display:none; margin-top:14px; }
+
+    /* Script Mode badge (top-right small pill) */
+    #v2ScriptBadge{ position:fixed; top:12px; right:12px; background:rgba(0,0,0,0.6); color:#DDF3FF; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:800; letter-spacing:.6px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 6px 20px rgba(0,112,243,0.06); display:none; z-index:1200; }
+
+    /* Cue overlay (subtle, centered near bottom) */
+    #v2Cue{ position:fixed; left:50%; transform:translateX(-50%); bottom:72px; background:rgba(0,0,0,0.55); color:#fff; padding:10px 14px; border-radius:10px; font-size:14px; opacity:0.92; border:1px solid rgba(255,255,255,0.04); display:none; z-index:1100; }
+
+    /* responsive */
+    @media(max-width:640px){ #v2Ring{ width:170px; height:170px; } }
+
+    /* keep original styles below (small subset) */
+    .muted{ font-size:12px; opacity:.75; }
+  </style>
+</head>
+<body>
+  <div class="page v2Shell">
+    <div class="hdr" style="width:100%;">
+      <div>
+        <div class="brand">NEUROFORGE</div>
+        <div class="title">Cognition One<span style="opacity:.7">™</span></div>
+      </div>
+      <div class="watermark" id="wm"></div>
+    </div>
+
+    <!-- Script Mode badge + Cue overlay -->
+    <div id="v2ScriptBadge">SCRIPT MODE</div>
+    <div id="v2Cue">Scene 1: Negotiation</div>
+
+    <div id="main" style="display:none; width:100%; display:flex; flex-direction:column; align-items:center; gap:12px;">
+      <div class="v2Card v2Center" role="region" aria-label="Live risk">
+        <div id="v2Ring" aria-hidden="false">
+          <div id="v2Dot"></div>
+        </div>
+        <div id="v2State">All clear</div>
+        <div id="v2Sub">No immediate concerns</div>
+
+        <div class="v2Actions" style="margin-top:12px;">
+          <button id="v2ActionBtn" class="v2Btn v2Primary">Details</button>
+        </div>
+
+        <div class="v2Actions" style="margin-top:8px;">
+          <button id="simBtn" class="v2Btn v2Secondary">Simulate</button>
+          <button id="sensorBtn" class="v2Btn v2Secondary">Sensors</button>
+          <button id="v2DetailsToggle" class="v2Btn v2Secondary">Details</button>
+          <button id="resetBtn" class="v2Btn v2Secondary">Reset</button>
+        </div>
+      </div>
+
+      <div id="v2Details">
+        <div class="v2DetailsInner" id="v2DetailsInner">
+          <div class="v2Line"><div>Voice intensity</div><div id="v2VoiceLine">Low</div></div>
+          <div class="v2Line"><div>Motion</div><div id="v2MotionLine">Low</div></div>
+          <div class="v2Line"><div>Integrity</div><div id="v2IntegrityLine">OK</div></div>
+          <div class="v2Line"><div>Why</div><div id="v2Why">Waiting for signal change…</div></div>
+          <div class="v2Note">On-device signals • No recording • No uploads</div>
+        </div>
+      </div>
+
+      <div id="v2Version">v2</div>
+
+      <div id="v2DevPanel">
+        <!-- Hidden dev UI: insert original debug UI here (modified slightly to avoid duplicate sim/sensor/reset IDs) -->
+        <div style="margin-top:12px;">
+          <!-- We'll reuse the original Scenario + Controls + Breakdown + Share panel here -->
+          <!-- Original content starts -->
+
+          <!-- Scenario + controls (copied from v1) -->
+          <div class="row">
+            <div class="card" style="flex:1 1 420px;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                <h3 style="margin:0;">Scenario</h3>
+                <div class="muted" id="scnSub">Baseline</div>
+              </div>
+              <div class="scenarioRow" id="scenarioRow"></div>
+              <div class="muted" style="margin-top:12px;">Scenario adds a small bias to simulate context (no “secret sauce”).</div>
+              <div style="margin-top:12px;">
+                <textarea id="notes" placeholder="Optional: notes for this run (local only)"></textarea>
+              </div>
+            </div>
+
+            <div class="card" style="flex:1 1 520px;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                <h3 style="margin:0;">Coupling Controls</h3>
+                <div class="muted">Weights + gains + smoothing</div>
+              </div>
+
+              <div style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                <div class="slider">
+                  <div class="sliderTop"><div style="font-weight:800;">Mic weight</div><div class="muted" id="v_micWeight">0.45</div></div>
+                  <input id="micWeight" type="range" min="0" max="1" step="0.01" />
+                </div>
+                <div class="slider">
+                  <div class="sliderTop"><div style="font-weight:800;">Motion weight</div><div class="muted" id="v_motionWeight">0.45</div></div>
+                  <input id="motionWeight" type="range" min="0" max="1" step="0.01" />
+                </div>
+                <div class="slider">
+                  <div class="sliderTop"><div style="font-weight:800;">Integrity weight</div><div class="muted" id="v_integrityWeight">0.35</div></div>
+                  <input id="integrityWeight" type="range" min="0" max="1" step="0.01" />
+                </div>
+                <div class="slider">
+                  <div class="sliderTop"><div style="font-weight:800;">Smoothing</div><div class="muted" id="v_smoothing">0.18</div></div>
+                  <input id="smoothing" type="range" min="0" max="0.45" step="0.01" />
+                </div>
+                <div class="slider">
+                  <div class="sliderTop"><div style="font-weight:800;">Mic gain</div><div class="muted" id="v_micGain">1.30</div></div>
+                  <input id="micGain" type="range" min="0.5" max="3" step="0.01" />
+                </div>
+                <div class="slider">
+                  <div class="sliderTop"><div style="font-weight:800;">Motion gain</div><div class="muted" id="v_motionGain">1.20</div></div>
+                  <input id="motionGain" type="range" min="0.5" max="3" step="0.01" />
+                </div>
+                <div class="slider">
+                  <div class="sliderTop"><div style="font-weight:800;">Scenario bias (manual)</div><div class="muted" id="v_scenarioBias">0.00</div></div>
+                  <input id="scenarioBias" type="range" min="-0.25" max="0.25" step="0.01" />
+                </div>
+
+                <div class="mini">
+                  <div style="font-weight:800;">Quick actions</div>
+                  <div class="btnrow" style="margin-top:10px;">
+                    <button class="ghost" id="resetControls">Reset controls</button>
+                    <button class="ghost" id="recheckIntegrity">Re-evaluate integrity</button>
+                  </div>
+                  <div class="muted" style="margin-top:10px;">Integrity is 1 when sensors are running; otherwise 0.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Breakdown + share -->
+          <div style="margin-top:12px; display:grid; gap:12px;">
+            <div class="riskCard">
+              <div class="riskTop">
+                <div class="muted">Risk Light</div>
+                <div class="muted" id="riskPct">0%</div>
+              </div>
+              <div class="lightRow">
+                <div class="dot" id="dot"></div>
+                <div class="riskLabel" id="riskLabel">GREEN</div>
+                <div class="muted" style="margin-left:auto;" id="scnTitle">Neutral</div>
+              </div>
+              <div class="bar" style="margin-top:10px;">
+                <div class="fill" id="riskFill" style="background:#1DB954;"></div>
+              </div>
+            </div>
+
+            <div class="riskCard">
+              <div class="muted" style="margin-bottom:8px;">Breakdown</div>
+              <div style="display:grid; gap:8px;">
+                <div class="split3">
+                  <div style="opacity:.82;">Mic</div>
+                  <div class="bar" style="height:8px; margin:0;"><div class="fill" id="bMic" style="height:100%; background: rgba(255,255,255,.75);"></div></div>
+                  <div class="muted" id="bMicT" style="text-align:right;">+0.000</div>
+                </div>
+                <div class="split3">
+                  <div style="opacity:.82;">Motion</div>
+                  <div class="bar" style="height:8px; margin:0;"><div class="fill" id="bMot" style="height:100%; background: rgba(255,255,255,.75);"></div></div>
+                  <div class="muted" id="bMotT" style="text-align:right;">+0.000</div>
+                </div>
+                <div class="split3">
+                  <div style="opacity:.82;">Integrity penalty</div>
+                  <div class="bar" style="height:8px; margin:0;"><div class="fill" id="bInt" style="height:100%; background: rgba(255,255,255,.75);"></div></div>
+                  <div class="muted" id="bIntT" style="text-align:right;">+0.000</div>
+                </div>
+                <div class="split3">
+                  <div style="opacity:.82;">Scenario bias</div>
+                  <div class="bar" style="height:8px; margin:0;"><div class="fill" id="bScn" style="height:100%; background: rgba(255,255,255,.75);"></div></div>
+                  <div class="muted" id="bScnT" style="text-align:right;">+0.000</div>
+                </div>
+              </div>
+              <div class="muted" style="margin-top:10px;">For video testing, simulate mode is enough.</div>
+            </div>
+
+          </div>
+
+          <!-- Share panel -->
+          <div class="card" id="sharePanel" style="display:none; margin-top:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <h3 style="margin:0;">Demo Share Mode</h3>
+              <div class="muted">Export/import client state (local only)</div>
+            </div>
+            <div class="btnrow" style="margin-top:10px;">
+              <button class="btn" id="exportBtn">Export state</button>
+              <button class="ghost" id="importBtn">Import state</button>
+              <button class="ghost" id="copyBtn">Copy JSON</button>
+              <div class="muted" id="shareMsg" style="margin-left:8px;"></div>
+            </div>
+            <div style="margin-top:10px;">
+              <textarea id="shareText" placeholder="Paste exported JSON here..."></textarea>
+            </div>
+          </div>
+
+          <!-- Original Live Inputs (hidden) to satisfy element queries -->
+          <div style="display:none;">
+            <div class="mini">
+              <video id="vid" playsinline muted></video>
+              <div id="vidPlaceholder"></div>
+            </div>
+            <div class="mini">
+              <div class="muted" id="micPct">0%</div>
+              <div class="bar"><div class="fill" id="micFill"></div></div>
+            </div>
+            <div class="mini">
+              <div class="muted" id="motPct">0%</div>
+              <div class="bar"><div class="fill" id="motFill"></div></div>
+            </div>
+            <div class="mini">
+              <div class="muted" id="intPct">0%</div>
+              <div class="bar"><div class="fill" id="intFill"></div></div>
+            </div>
+          </div>
+
+          <!-- Original control buttons are renamed here to avoid duplicate IDs -->
+          <div style="display:none;">
+            <button id="simBtn_dev">Simulate Dev</button>
+            <button id="sensorBtn_dev">Sensors Dev</button>
+            <button id="resetBtn_dev">Reset Dev</button>
+          </div>
+
+          <!-- Original scenario/controls/listeners remain available in the DOM above -->
+          <!-- Original content ends -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // core JS is mostly copied from v1 to preserve behavior
+  const LS_SESSION = "c1_video_demo_session_v1";
+  const LS_FEEDBACK = "c1_video_demo_feedback_v1";
+  const INVITES = [
+    { code: "C1-ALPHA-7D", testerId: "ALPHA-001", label: "Alpha Tester" },
+    { code: "C1-LAW-7D", testerId: "LAW-014", label: "Legal Pilot" },
+    { code: "C1-EXEC-7D", testerId: "EXEC-022", label: "Exec Reminder" },
+    { code: "C1-BETA-7D", testerId: "BETA-090", label: "Beta Access" },
+  ];
+
+  const DEFAULT_CONTROLS = {
+    micWeight: 0.45,
+    motionWeight: 0.45,
+    integrityWeight: 0.35,
+    smoothing: 0.18,
+    micGain: 1.30,
+    motionGain: 1.20,
+    scenarioBias: 0.00,
+  };
+
+  const SCENARIOS = [
+    { key:"neutral",      title:"Neutral",         sub:"Baseline",                 bias:0.00 },
+    { key:"negotiation",  title:"Negotiation",     sub:"Pressure + framing",       bias:0.08 },
+    { key:"phone-call",   title:"Phone Call",      sub:"Timeline variance",        bias:0.06 },
+    { key:"coffee",       title:"Coffee",          sub:"Mismatch cues",            bias:0.04 },
+    { key:"street",       title:"Street",          sub:"Unknown approach risk",    bias:0.10 },
+    { key:"high-pressure",title:"High Pressure",   sub:"Aggressive tactics",       bias:0.14 },
+  ];
+
+  function clamp01(n){ return Math.max(0, Math.min(1, n)); }
+  function fmt(ts){ try{ return new Date(ts).toLocaleString(); }catch{ return ""+ts; } }
+  function daysLeft(ms){ return Math.max(0, Math.round(ms/(1000*60*60*24))); }
+
+  function riskColor(score){
+    if(score < 0.25) return {label:"GREEN", color: "#0EB7FF"};
+    if(score < 0.50) return {label:"YELLOW", color: "#F5C542"};
+    if(score < 0.75) return {label:"ORANGE", color: "#FF8C42"};
+    return {label:"RED", color: "#FF3B30"};
+  }
+
+  function getScenario(key){ return SCENARIOS.find(s => s.key === key) || SCENARIOS[0]; }
+
+  // elements (some are in the hidden dev panel)
+  const gate = document.getElementById("gate");
+  const main = document.getElementById("main");
+  const wm = document.getElementById("wm");
+
+  const permText = document.getElementById("permText") || { textContent: '' };
+  const simBtn = document.getElementById("simBtn");
+  const sensorBtn = document.getElementById("sensorBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const sensorMsg = document.getElementById("sensorMsg") || { textContent: '' };
+
+  // dev panel elements are present (many from original v1 are present inside dev panel)
+  const micPct = document.getElementById("micPct");
+  const motPct = document.getElementById("motPct");
+  const intPct = document.getElementById("intPct");
+  const micFill = document.getElementById("micFill");
+  const motFill = document.getElementById("motFill");
+  const intFill = document.getElementById("intFill");
+
+  const rawText = document.getElementById("rawText") || { textContent: '' };
+  const riskPct = document.getElementById("riskPct");
+  const riskFill = document.getElementById("riskFill");
+  const dot = document.getElementById("dot");
+  const riskLabel = document.getElementById("riskLabel");
+
+  const scnTitle = document.getElementById("scnTitle");
+  const scnSub = document.getElementById("scnSub");
+  const scenarioRow = document.getElementById("scenarioRow");
+  const notesEl = document.getElementById("notes");
+
+  const shareToggle = document.getElementById("shareToggle");
+  const sharePanel = document.getElementById("sharePanel");
+  const shareText = document.getElementById("shareText");
+  const exportBtn = document.getElementById("exportBtn");
+  const importBtn = document.getElementById("importBtn");
+  const copyBtn = document.getElementById("copyBtn");
+  const shareMsg = document.getElementById("shareMsg");
+
+  const controls = {
+    micWeight: document.getElementById("micWeight"),
+    motionWeight: document.getElementById("motionWeight"),
+    integrityWeight: document.getElementById("integrityWeight"),
+    smoothing: document.getElementById("smoothing"),
+    micGain: document.getElementById("micGain"),
+    motionGain: document.getElementById("motionGain"),
+    scenarioBias: document.getElementById("scenarioBias"),
+  };
+  const controlVals = {
+    micWeight: document.getElementById("v_micWeight"),
+    motionWeight: document.getElementById("v_motionWeight"),
+    integrityWeight: document.getElementById("v_integrityWeight"),
+    smoothing: document.getElementById("v_smoothing"),
+    micGain: document.getElementById("v_micGain"),
+    motionGain: document.getElementById("v_motionGain"),
+    scenarioBias: document.getElementById("v_scenarioBias"),
+  };
+  const resetControlsBtn = document.getElementById("resetControls");
+  const recheckIntegrityBtn = document.getElementById("recheckIntegrity");
+
+  const bMic = document.getElementById("bMic");
+  const bMot = document.getElementById("bMot");
+  const bInt = document.getElementById("bInt");
+  const bScn = document.getElementById("bScn");
+  const bMicT = document.getElementById("bMicT");
+  const bMotT = document.getElementById("bMotT");
+  const bIntT = document.getElementById("bIntT");
+  const bScnT = document.getElementById("bScnT");
+
+  const vid = document.getElementById("vid");
+  const vidPlaceholder = document.getElementById("vidPlaceholder");
+  let stream = null;
+  let audioCtx = null;
+  let analyser = null;
+  let rafMic = null;
+  let rafSim = null;
+  let rafMotion = null;
+  const cv = document.getElementById("cv");
+  let lastFrame = null;
+
+  let state = loadSession() || {
+    v: 2,
+    exportedAt: Date.now(),
+    invite: null,
+    controls: {...DEFAULT_CONTROLS},
+    ui: { scenario: "neutral", notes: "" },
+  };
+
+  let micLevel = 0;
+  let motionLevel = 0;
+  let integrity = 0;
+  let riskRaw = 0;
+  let riskSmooth = 0;
+  let lastHeadline = null;
+  let lastBulletsHtml = null;
+  let _insightPulseTimeout = null;
+
+  // v2 elements
+  const v2Ring = document.getElementById('v2Ring');
+  const v2Dot = document.getElementById('v2Dot');
+  const v2State = document.getElementById('v2State');
+  const v2Sub = document.getElementById('v2Sub');
+  const v2ActionBtn = document.getElementById('v2ActionBtn');
+  const v2DetailsToggle = document.getElementById('v2DetailsToggle');
+  const v2DetailsInner = document.getElementById('v2DetailsInner');
+  const v2Details = document.getElementById('v2Details');
+  const v2VoiceLine = document.getElementById('v2VoiceLine');
+  const v2MotionLine = document.getElementById('v2MotionLine');
+  const v2IntegrityLine = document.getElementById('v2IntegrityLine');
+  const v2Why = document.getElementById('v2Why');
+  const v2Version = document.getElementById('v2Version');
+  const v2DevPanel = document.getElementById('v2DevPanel');
+
+  // Script Mode global state (for filming controlled states)
+  let scriptMode = false;
+  let scriptOverride = null; // number 0..1 or null
+  let cueOn = false;
+  let cueLabel = "Scene 1: Negotiation";
+  let displayedRisk = riskSmooth; // used for animating the ring fill
+
+  function updateScriptBadge(){ const b = document.getElementById('v2ScriptBadge'); if(!b) return; b.style.display = scriptMode ? 'inline-block' : 'none'; }
+  function updateCueOverlay(){ const el = document.getElementById('v2Cue'); if(!el) return; el.style.display = (scriptMode && cueOn) ? 'block' : 'none'; el.textContent = cueLabel; }
+
+  // Expose helpers for external control / automated tests
+  window.__setScriptModeForTest = (v) => { scriptMode = !!v; updateScriptBadge(); updateCueOverlay(); renderV2(); };
+  window.__setScriptOverride = (v) => { scriptOverride = (v === null ? null : clamp01(Number(v))); renderV2(); };
+  window.__setCue = (label, on) => { cueLabel = label || cueLabel; cueOn = !!on; updateCueOverlay(); };
+
+  // animate ring fill from displayedRisk -> target (420ms ease-out)
+  function animateRingTo(target){ if(!v2Ring) return; target = clamp01(Number(target)); if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){ displayedRisk = target; const pct = Math.round(displayedRisk*100); const rc = riskColor(displayedRisk); v2Ring.style.background = `conic-gradient(${rc.color} ${pct}%, rgba(255,255,255,0.02) ${pct}% 100%)`; if(v2Dot){ v2Dot.style.background = rc.color; v2Dot.style.boxShadow = `0 0 24px ${rc.color}`; } if(displayedRisk >= 0.25 && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) v2Ring.classList.add('ring-pulse'); else v2Ring.classList.remove('ring-pulse'); return; }
+    const start = displayedRisk;
+    const dur = 420;
+    const t0 = performance.now();
+    function step(now){ const p = Math.min(1, (now - t0)/dur); const ease = 1 - Math.pow(1 - p, 3); displayedRisk = start + (target - start) * ease; const pct = Math.round(displayedRisk*100); const rc = riskColor(displayedRisk); v2Ring.style.background = `conic-gradient(${rc.color} ${pct}%, rgba(255,255,255,0.02) ${pct}% 100%)`; if(v2Dot){ v2Dot.style.background = rc.color; v2Dot.style.boxShadow = `0 0 24px ${rc.color}`; } if(displayedRisk >= 0.25 && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) v2Ring.classList.add('ring-pulse'); else v2Ring.classList.remove('ring-pulse'); if(p < 1) requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  }
+
+  // keyboard controls for Script Mode and Cue overlay
+  document.addEventListener('keydown', (e) => {
+    // ignore when typing
+    const tgt = e.target; if(tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
+    const k = (e.key || '').toLowerCase();
+    if(k === 'k'){
+      scriptMode = !scriptMode;
+      if(!scriptMode) scriptOverride = null; // release when leaving script mode
+      updateScriptBadge(); updateCueOverlay(); renderV2(); return;
+    }
+    if(!scriptMode) return;
+
+    // Hotkeys: 1..4 force specific risk values, 0 releases override
+    if(k === '1'){ scriptOverride = 0.12; renderV2(); return; }
+    if(k === '2'){ scriptOverride = 0.38; renderV2(); return; }
+    if(k === '3'){ scriptOverride = 0.62; renderV2(); return; }
+    if(k === '4'){ scriptOverride = 0.86; renderV2(); return; }
+    if(k === '0'){ scriptOverride = null; renderV2(); return; }
+
+    // Cue overlay toggle
+    if(k === 'c') { cueOn = !cueOn; updateCueOverlay(); return; }
+    // Scene labels: Q/W/E/R
+    if(k === 'q'){ cueLabel = 'Scene 1: Negotiation'; updateCueOverlay(); return; }
+    if(k === 'w'){ cueLabel = 'Scene 2: Phone Call'; updateCueOverlay(); return; }
+    if(k === 'e'){ cueLabel = 'Scene 3: Coffee'; updateCueOverlay(); return; }
+    if(k === 'r'){ cueLabel = 'Scene 4: Street'; updateCueOverlay(); return; }
+  });
+
+  renderScenarioButtons();
+  hydrateControls();
+  notesEl && (notesEl.value = state.ui.notes || "");
+
+  function showGate(){ gate && (gate.style.display = ""); main && (main.style.display = "none"); updateWatermark(); }
+  function showMain(){ gate && (gate.style.display = "none"); main && (main.style.display = ""); updateWatermark(); applyScenarioUI(); }
+
+  function updateWatermark(){
+    if(!state.invite){ wm.innerHTML = `<div class="muted">Local build</div><div class="muted">${fmt(Date.now())}</div>`; return; }
+    const left = daysLeft(state.invite.expiresAt - Date.now());
+    wm.innerHTML = `
+      <div style="opacity:.92;">TESTER ${state.invite.testerId}</div>
+      <div style="opacity:.68;">EXPIRES IN ${left} DAY${left===1?"":"S"}</div>
+      <div style="opacity:.56;">(${fmt(state.invite.expiresAt)})</div>
+    `;
+  }
+
+  function isExpired(){ return !!state.invite && Date.now() > state.invite.expiresAt; }
+
+  function renderScenarioButtons(){
+    if(!scenarioRow) return;
+    scenarioRow.innerHTML = "";
+    SCENARIOS.forEach(s => {
+      const b = document.createElement("button");
+      b.className = "pill";
+      b.textContent = s.title;
+      b.onclick = () => { state.ui.scenario = s.key; persist(); applyScenarioUI(); };
+      scenarioRow.appendChild(b);
+    });
+    applyScenarioUI();
+  }
+
+  function applyScenarioUI(){
+    const s = getScenario(state.ui.scenario);
+    scnTitle && (scnTitle.textContent = s.title);
+    scnSub && (scnSub.textContent = s.sub);
+    if(scenarioRow) [...scenarioRow.querySelectorAll('.pill')].forEach((el, idx) => {
+      el.classList.toggle('active', SCENARIOS[idx].key === state.ui.scenario);
+    });
+  }
+
+  function hydrateControls(){ Object.keys(DEFAULT_CONTROLS).forEach(k => { if(controls[k]) controls[k].value = state.controls[k]; if(controlVals[k]) controlVals[k].textContent = (+state.controls[k]).toFixed(2); }); }
+
+  function attachControlHandlers(){
+    Object.keys(controls).forEach(k => { if(!controls[k]) return; controls[k].addEventListener("input", (e) => { const v = parseFloat(e.target.value); state.controls[k] = v; if(controlVals[k]) controlVals[k].textContent = v.toFixed(2); persist(); }); });
+    resetControlsBtn && (resetControlsBtn.onclick = () => { state.controls = {...DEFAULT_CONTROLS}; hydrateControls(); persist(); });
+    recheckIntegrityBtn && (recheckIntegrityBtn.onclick = () => { integrity = stream ? 1 : 0; renderLevels(); persist(); });
+    notesEl && notesEl.addEventListener("input", () => { state.ui.notes = notesEl.value; persist(); });
+  }
+
+  function loadSession(){ try{ const raw = localStorage.getItem(LS_SESSION); if(!raw) return null; return JSON.parse(raw); }catch{ return null; } }
+  function persist(){ try{ state.exportedAt = Date.now(); localStorage.setItem(LS_SESSION, JSON.stringify(state)); }catch{}
+  }
+  function clearAll(){ try{ localStorage.removeItem(LS_SESSION); localStorage.removeItem(LS_FEEDBACK); }catch{} }
+
+  // Keep existing activate flow
+  const inviteInput = document.getElementById('inviteInput');
+  const activateBtn = document.getElementById('activateBtn');
+  const inviteErr = document.getElementById('inviteErr');
+  activateBtn && (activateBtn.onclick = () => { inviteErr && (inviteErr.style.display = 'none'); const code = (inviteInput.value || '').trim().toUpperCase(); const found = INVITES.find(i => i.code.toUpperCase() === code); if(!found){ inviteErr && (inviteErr.textContent = 'Invalid invite code.'); inviteErr && (inviteErr.style.display = ''); return; } const activatedAt = Date.now(); const expiresAt = activatedAt + 7*24*60*60*1000; state.invite = { testerId: found.testerId, inviteCode: found.code, activatedAt, expiresAt }; persist(); showMain(); });
+
+  // share panel handlers (if present)
+  shareToggle && (shareToggle.onclick = () => { if(sharePanel) sharePanel.style.display = (sharePanel.style.display === 'none' || sharePanel.style.display === '') ? '' : 'none'; shareMsg && (shareMsg.textContent = ''); });
+  exportBtn && (exportBtn.onclick = () => { const payload = { v: 2, exportedAt: Date.now(), invite: state.invite, controls: state.controls, ui: state.ui }; shareText && (shareText.value = JSON.stringify(payload, null, 2)); shareMsg && (shareMsg.textContent = 'State exported.'); });
+  importBtn && (importBtn.onclick = () => { shareMsg && (shareMsg.textContent = ''); try{ const parsed = JSON.parse(shareText.value); if(!parsed || parsed.v !== 1 && parsed.v !== 2) { shareMsg && (shareMsg.textContent = 'Invalid payload version.'); return; } state.invite = parsed.invite || state.invite || null; state.controls = {...DEFAULT_CONTROLS, ...(parsed.controls || {})}; state.ui = { scenario: (parsed.ui && parsed.ui.scenario) || 'neutral', notes: (parsed.ui && parsed.ui.notes) || '' }; notesEl && (notesEl.value = state.ui.notes || ''); hydrateControls(); applyScenarioUI(); persist(); shareMsg && (shareMsg.textContent = 'State imported.'); }catch{ shareMsg && (shareMsg.textContent = 'Invalid JSON.'); } });
+  copyBtn && (copyBtn.onclick = async () => { try{ await navigator.clipboard.writeText(shareText.value || ''); shareMsg && (shareMsg.textContent = 'Copied.'); }catch{ shareMsg && (shareMsg.textContent = 'Copy failed (browser blocked).'); } });
+
+  // Reset behavior uses existing resetBtn (present in v2 main)
+  resetBtn && (resetBtn.onclick = () => { stopAll(); clearAll(); state = { v:2, exportedAt: Date.now(), invite: null, controls: {...DEFAULT_CONTROLS}, ui: { scenario:'neutral', notes:'' } }; notesEl && (notesEl.value = ''); hydrateControls(); applyScenarioUI(); setLevels(0,0,0); riskRaw = 0; riskSmooth = 0; renderRisk(); showGate(); });
+
+  // simulate toggle uses existing simBtn
+  let simOn = false;
+  simBtn && (simBtn.onclick = () => {
+    if(simOn){ simOn = false; simBtn.textContent = 'Start simulate'; if(rafSim) cancelAnimationFrame(rafSim); rafSim = null; sensorMsg && (sensorMsg.textContent = ''); setLevels(0,0, integrity); return; }
+    simOn = true; simBtn.textContent = 'Stop simulate'; sensorMsg && (sensorMsg.textContent = 'Simulating mic + motion (perfect for offline video development).'); simLoop();
+  });
+
+  function simLoop(){ const t = Date.now() / 1000; const baseMic = 0.20 + 0.18*Math.sin(t*1.8) + 0.06*Math.sin(t*6.2); const baseMot = 0.18 + 0.16*Math.sin(t*1.3 + 1.2) + 0.05*Math.sin(t*4.9); const spike = (Math.sin(t*0.42) > 0.92) ? 0.28 : 0; micLevel = clamp01((baseMic + spike) * state.controls.micGain); motionLevel = clamp01((baseMot + spike*0.7) * state.controls.motionGain); integrity = stream ? 1 : 1; renderLevels(); computeRisk(); rafSim = requestAnimationFrame(simLoop); }
+
+  // sensors button behavior
+  sensorBtn && (sensorBtn.onclick = async () => {
+    sensorMsg && (sensorMsg.textContent = '');
+    if(stream){ stopSensors(); sensorBtn.textContent = 'Try sensors'; permText && (permText.textContent = 'Sensors: off'); integrity = 0; renderLevels(); computeRisk(); return; }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ sensorMsg && (sensorMsg.textContent = "This browser doesn't support getUserMedia."); return; }
+    try{ stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: 'user' }, audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } }); vid && (vid.srcObject = stream); vid && (vid.style.display = ''); vidPlaceholder && (vidPlaceholder.style.display = 'none'); try{ await vid.play(); }catch{}; const AudioContext = window.AudioContext || window.webkitAudioContext; audioCtx = new AudioContext(); const source = audioCtx.createMediaStreamSource(stream); analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.8; source.connect(analyser); sensorBtn.textContent = 'Stop sensors'; permText && (permText.textContent = 'Sensors: running'); integrity = 1; renderLevels(); micLoop(); motionLoop(); sensorMsg && (sensorMsg.textContent = 'Sensors running. (No recording. No upload.)'); }catch(e){ sensorMsg && (sensorMsg.textContent = 'Sensors blocked (expected on file://). If you want sensors, serve this file on localhost.'); }
+  });
+
+  function micLoop(){ if(!analyser) return; const data = new Uint8Array(analyser.frequencyBinCount); analyser.getByteTimeDomainData(data); let sumSq = 0; for(let i=0;i<data.length;i++){ const v = (data[i]-128)/128; sumSq += v*v; } const rms = Math.sqrt(sumSq/data.length); micLevel = clamp01(rms * state.controls.micGain * 2.2); renderLevels(); computeRisk(); rafMic = requestAnimationFrame(micLoop); }
+  function motionLoop(){ if(!vid || !stream) return; const ctx = cv.getContext('2d', {willReadFrequently:true}); if(!ctx) return; const w = 96, h = 54; cv.width = w; cv.height = h; try{ ctx.drawImage(vid, 0,0,w,h); const img = ctx.getImageData(0,0,w,h); const curr = img.data; if(lastFrame && lastFrame.length === curr.length){ let diffSum = 0; const stride = 16; for(let i=0;i<curr.length;i+=stride){ const c = (curr[i]+curr[i+1]+curr[i+2])/3; const p = (lastFrame[i]+lastFrame[i+1]+lastFrame[i+2])/3; diffSum += Math.abs(c-p); } const samples = curr.length/stride; const avgDiff = diffSum/samples; motionLevel = clamp01((avgDiff/35) * state.controls.motionGain); } lastFrame = new Uint8ClampedArray(curr); }catch{} renderLevels(); computeRisk(); rafMotion = requestAnimationFrame(motionLoop); }
+
+  function stopSensors(){ if(rafMic) cancelAnimationFrame(rafMic); if(rafMotion) cancelAnimationFrame(rafMotion); rafMic=null; rafMotion=null; try{ analyser && analyser.disconnect && analyser.disconnect(); }catch{} analyser=null; try{ audioCtx && audioCtx.close && audioCtx.close(); }catch{} audioCtx=null; if(stream){ stream.getTracks().forEach(t=>t.stop()); } stream=null; lastFrame=null; vid && (vid.srcObject=null); vid && (vid.style.display='none'); vidPlaceholder && (vidPlaceholder.style.display=''); }
+
+  function stopAll(){ if(rafSim) cancelAnimationFrame(rafSim); rafSim=null; simOn=false; simBtn && (simBtn.textContent='Start simulate'); stopSensors(); }
+
+  function setLevels(m, mo, it){ micLevel = m; motionLevel = mo; integrity = it; renderLevels(); computeRisk(); }
+
+  function renderLevels(){
+    micPct && (micPct.textContent = Math.round(micLevel*100) + "%");
+    motPct && (motPct.textContent = Math.round(motionLevel*100) + "%");
+    intPct && (intPct.textContent = Math.round(integrity*100) + "%");
+    micFill && (micFill.style.width = Math.round(micLevel*100) + "%");
+    motFill && (motFill.style.width = Math.round(motionLevel*100) + "%");
+    intFill && (intFill.style.width = Math.round(integrity*100) + "%");
+
+    // update v2 detail lines live
+    if(v2VoiceLine) v2VoiceLine.textContent = micLevel > 0.55 ? 'High' : (micLevel > 0.35 ? 'Med' : 'Low');
+    if(v2MotionLine) v2MotionLine.textContent = motionLevel > 0.55 ? 'High' : (motionLevel > 0.35 ? 'Med' : 'Low');
+    if(v2IntegrityLine) v2IntegrityLine.textContent = integrity < 0.5 ? 'Limited' : 'OK';
+
+    // call v2 renderer so the center UI reflects live changes
+    renderV2();
+  }
+
+  function computeRisk(){
+    const c = state.controls;
+    const missingPenalty = clamp01(1 - integrity);
+    const base = clamp01(micLevel)*c.micWeight + clamp01(motionLevel)*c.motionWeight + clamp01(missingPenalty)*c.integrityWeight;
+    const scn = getScenario(state.ui.scenario);
+    const biasCentered = (scn.bias + c.scenarioBias);
+    const raw = clamp01(base + biasCentered);
+
+    riskRaw = raw;
+    const a = clamp01(c.smoothing);
+    riskSmooth = riskSmooth + a*(raw - riskSmooth);
+
+    renderRisk();
+    renderBreakdown();
+  }
+
+  function renderBreakdown(){
+    const c = state.controls;
+    const scn = getScenario(state.ui.scenario);
+    const vMic = micLevel*c.micWeight;
+    const vMot = motionLevel*c.motionWeight;
+    const vInt = (1 - integrity)*c.integrityWeight;
+    const vScn = scn.bias + c.scenarioBias;
+
+    function setBar(el, txtEl, v){ if(!el || !txtEl) return; const pct = Math.round(clamp01(Math.abs(v))*100); el.style.width = pct + "%"; txtEl.textContent = (v<0? "-" : "+") + Math.abs(v).toFixed(3); }
+    setBar(bMic, bMicT, vMic);
+    setBar(bMot, bMotT, vMot);
+    setBar(bInt, bIntT, vInt);
+    setBar(bScn, bScnT, vScn);
+  }
+
+  function renderRisk(){
+    rawText && (rawText.textContent = `raw ${riskRaw.toFixed(3)} • smooth ${riskSmooth.toFixed(3)}`);
+    riskPct && (riskPct.textContent = Math.round(riskSmooth*100) + "%");
+
+    const rc = riskColor(riskSmooth);
+    riskLabel && (riskLabel.textContent = rc.label);
+    riskFill && (riskFill.style.width = Math.round(riskSmooth*100) + "%");
+    riskFill && (riskFill.style.background = rc.color);
+    dot && (dot.style.background = rc.color);
+    dot && (dot.style.boxShadow = `0 0 18px ${rc.color}`);
+
+    scnTitle && (scnTitle.textContent = getScenario(state.ui.scenario).title);
+
+    // ensure insights are updated
+    renderInsights();
+
+    // update v2 after risk updates
+    renderV2();
+  }
+
+  function renderInsights(){
+    const scn = getScenario(state.ui.scenario);
+    const conf = clamp01((riskSmooth * 0.7) + (integrity * 0.3));
+    const confPct = Math.round(conf * 100);
+
+    const headlineEl = document.getElementById("insightHeadline");
+    const whyEl = document.getElementById("insightWhy");
+    const confEl = document.getElementById("insightConfidence");
+    const bulletsEl = document.getElementById("insightBullets");
+    if(!headlineEl || !whyEl || !confEl || !bulletsEl) return;
+
+    confEl.textContent = `Confidence: ${confPct}%`;
+
+    const micHot = micLevel > 0.55;
+    const micWarm = micLevel > 0.35;
+    const motHot = motionLevel > 0.55;
+    const motWarm = motionLevel > 0.35;
+    const integrityBad = integrity < 0.5;
+
+    const scenarioCue =
+      scn.key === "phone-call" ? "Timeline inconsistency cue" :
+      scn.key === "coffee" ? "Emotional mismatch cue" :
+      scn.key === "negotiation" ? "Pressure / framing cue" :
+      scn.key === "street" ? "Unknown approach cue" :
+      scn.key === "high-pressure" ? "Aggressive tactic cue" :
+      "Baseline cue";
+
+    let headline = "Baseline stable";
+    if (riskSmooth >= 0.75) headline = "High risk — de-escalate + verify";
+    else if (riskSmooth >= 0.50) headline = "Elevated risk — ask clarifying question";
+    else if (riskSmooth >= 0.25) headline = "Watch mode — subtle pressure detected";
+    headlineEl.textContent = headline;
+
+    const whyParts = [];
+    if (micHot) whyParts.push("voice intensity spike");
+    else if (micWarm) whyParts.push("voice intensity rising");
+    if (motHot) whyParts.push("rapid movement / agitation");
+    else if (motWarm) whyParts.push("movement increasing");
+    if (integrityBad) whyParts.push("sensor integrity low");
+    whyParts.push(scenarioCue.toLowerCase());
+
+    whyEl.textContent = `Reason: ${whyParts.join(" • ")}`;
+
+    const bullets = [];
+    bullets.push(integrityBad ? "Integrity warning: signals may be incomplete (check permissions)." : "Integrity OK: live signals are present.");
+
+    if (riskSmooth >= 0.75) { bullets.push("Action: pause, breathe, and demand specifics (who/what/when)."); bullets.push("Action: verify claims with a second channel (text/email)."); }
+    else if (riskSmooth >= 0.50) { bullets.push("Action: ask one clarifying question and re-check consistency."); bullets.push("Action: slow the pace; don’t accept rushed decisions."); }
+    else if (riskSmooth >= 0.25) { bullets.push("Action: stay neutral; watch for pattern shifts."); bullets.push("Action: keep boundaries and ask for details."); }
+    else { bullets.push("Action: continue normally; maintain awareness."); bullets.push("Action: keep notes if stakes are high."); }
+
+    bullets.push(`Context cue: ${scenarioCue}.`);
+    const bulletsHtml = bullets.map(b => `<li>${b}</li>`).join("");
+    bulletsEl.innerHTML = bulletsHtml;
+
+    // pulse the analysis card when headline or bullets change
+    try{
+      const card = document.getElementById("analysisCard");
+      const headlineChanged = lastHeadline !== headlineEl.textContent;
+      const bulletsChanged = lastBulletsHtml !== bulletsHtml;
+      if((headlineChanged || bulletsChanged) && card){
+        card.classList.add("pulse");
+        if(_insightPulseTimeout) clearTimeout(_insightPulseTimeout);
+        _insightPulseTimeout = setTimeout(()=>{ card.classList.remove("pulse"); _insightPulseTimeout = null; }, 320);
+      }
+      if(headlineChanged){ try{ headlineEl.classList.add('headline-enter'); requestAnimationFrame(()=>{ headlineEl.classList.remove('headline-enter'); }); }catch(e){} }
+      lastHeadline = headlineEl.textContent;
+      lastBulletsHtml = bulletsHtml;
+    }catch(e){}
+  }
+
+  attachControlHandlers();
+
+  if(state.invite){ showMain(); if(isExpired()){ sensorMsg && (sensorMsg.textContent = "Note: session invite is expired, but this offline file stays usable for video development."); } }
+  else{ showGate(); }
+
+  updateWatermark();
+  renderLevels();
+  computeRisk();
+  // ensure script UI is in correct initial state
+  updateScriptBadge(); updateCueOverlay();
+  setInterval(updateWatermark, 10_000);
+
+  // --- v2 Render + Interactions ---
+  function renderV2(){
+    if(!v2State) return;
+    // use script override when present, otherwise live smooth value
+    const effectiveRisk = (scriptOverride !== null) ? clamp01(scriptOverride) : riskSmooth;
+    const rc = riskColor(effectiveRisk);
+    // state tiers based on effective risk
+    let stateLabel = 'All clear';
+    let sub = 'No immediate concerns';
+    let actionLabel = 'Details';
+    if(effectiveRisk >= 0.75){ stateLabel = 'Verify first'; sub = 'High inconsistency detected'; actionLabel = 'Verify now'; }
+    else if(effectiveRisk >= 0.50){ stateLabel = 'Slow down'; sub = 'Elevated indicators'; actionLabel = 'Ask one question'; }
+    else if(effectiveRisk >= 0.25){ stateLabel = 'Pay attention'; sub = 'Subtle cues present'; actionLabel = 'Stay neutral'; }
+    v2State.textContent = stateLabel;
+    v2Sub.textContent = sub;
+    v2ActionBtn.textContent = actionLabel;
+
+    // animate the ring to the effective risk; dot color updates during animation
+    animateRingTo(effectiveRisk);
+
+    // details why line uses renderInsights output when available
+    // try to reuse the analysis card's reason if present
+    const analysisWhy = (document.getElementById('insightWhy') && document.getElementById('insightWhy').textContent) || '';
+    if(v2Why) v2Why.textContent = analysisWhy.replace(/^Reason:\s*/i, '') || 'Waiting for signal change…';
+
+    // voice/motion/integrity lines updated in renderLevels();
+  }
+
+  // Details toggle logic
+  if(v2DetailsToggle){ v2DetailsToggle.addEventListener('click', ()=>{ if(!v2DetailsInner) return; const open = v2DetailsInner.style.display !== 'block'; v2DetailsInner.style.display = open ? 'block' : 'none'; }); }
+  if(v2ActionBtn){ v2ActionBtn.addEventListener('click', ()=>{ // action behavior based on tier
+    if(riskSmooth < 0.25){ v2DetailsInner && (v2DetailsInner.style.display = v2DetailsInner.style.display === 'block' ? 'none' : 'block'); }
+    else { // for elevated tiers, open details and add subtle highlight
+      v2DetailsInner && (v2DetailsInner.style.display = 'block');
+      v2DetailsInner && (v2DetailsInner.style.boxShadow = '0 8px 30px rgba(0,0,0,0.6)');
+      setTimeout(()=>{ v2DetailsInner && (v2DetailsInner.style.boxShadow = ''); }, 800);
+    }
+  }); }
+
+  // v2 Dev mode: 7 clicks toggles dev panel
+  if(v2Version){
+    let v2Count = 0;
+    v2Version.addEventListener('click', ()=>{
+      v2Count++;
+      if(v2Count >= 7){
+        v2Count = 0;
+        if(v2DevPanel){ v2DevPanel.style.display = (v2DevPanel.style.display === 'block') ? 'none' : 'block'; }
+      }
+    });
+  }
+
+  // Expose renderV2 to global for sandbox/test
+  window.renderV2 = renderV2;
+
+})();
+</script>
+</body>
+</html>
