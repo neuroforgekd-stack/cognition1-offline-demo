@@ -110,6 +110,12 @@
           <div class="v2Line"><div>Motion</div><div id="v2MotionLine">Low</div></div>
           <div class="v2Line"><div>Integrity</div><div id="v2IntegrityLine">OK</div></div>
           <div class="v2Line"><div>Why</div><div id="v2Why">Waiting for signal change…</div></div>
+          <div class="v2Line"><div>Language</div><div id="v2Language">Low</div></div>
+          <div class="v2Line"><div>Tone</div><div id="v2Tone">Calm</div></div>
+          <div style="margin-top:8px;">
+            <button id="v2TranscriptToggle" class="v2Btn v2Secondary" style="font-weight:600;">Transcript</button>
+            <div id="v2Transcript" style="display:none; margin-top:8px; max-height:160px; overflow:auto; font-size:13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(0,0,0,0.12); padding:8px; border-radius:8px;"></div>
+          </div>
           <div class="v2Note">On-device signals • No recording • No uploads</div>
         </div>
       </div>
@@ -132,9 +138,12 @@
               <div class="scenarioRow" id="scenarioRow"></div>
               <div class="muted" style="margin-top:12px;">Scenario adds a small bias to simulate context (no “secret sauce”).</div>
               <div style="margin-top:12px;">
-                <textarea id="notes" placeholder="Optional: notes for this run (local only)"></textarea>
+                    <textarea id="notes" placeholder="Optional: notes for this run (local only)"></textarea>
               </div>
             </div>
+                <div style="margin-top:8px;">
+                  <button id="v2DemoBtn" class="v2Btn v2Secondary">Start Demo</button>
+                </div>
 
             <div class="card" style="flex:1 1 520px;">
               <div style="display:flex; justify-content:space-between; align-items:baseline;">
@@ -284,6 +293,15 @@
 <script>
 (() => {
   // core JS is mostly copied from v1 to preserve behavior
+  // Error overlay helpers (will display JS/runtime errors to the user)
+  const overlay = document.getElementById("v2ErrorOverlay");
+  function showErr(msg){
+    if(!overlay) return;
+    overlay.style.display = "block";
+    overlay.textContent = msg;
+  }
+  window.addEventListener("error", (e) => showErr("JS ERROR:\n" + (e?.message || e) + "\n" + (e?.filename||"") + ":" + (e?.lineno||"") ) );
+  window.addEventListener("unhandledrejection", (e) => showErr("PROMISE REJECTION:\n" + (e?.reason?.message || e?.reason || e)));
   const LS_SESSION = "c1_video_demo_session_v1";
   const LS_FEEDBACK = "c1_video_demo_feedback_v1";
   const INVITES = [
@@ -404,6 +422,29 @@
   const cv = document.getElementById("cv");
   let lastFrame = null;
 
+  // --- v2.1 audio + ASR + language classifier state ---
+  let toneScore = 0;        // 0..1 from prosody/VAD
+  let languageScore = 0;    // 0..1 from keyword/pattern detector
+  let faceScore = 0;        // placeholder for face-based signals (0..1)
+  let asrAvailable = false;
+  let asrContinuous = null; // ASR recognizer instance or null
+  const transcriptBuffer = []; // {ts, text}
+
+  // internal helpers: keep last N seconds of transcript in memory only
+  function pushTranscript(text){ try{ const ts = Date.now(); transcriptBuffer.push({ts, text}); const cutoff = ts - 20_000; while(transcriptBuffer.length && transcriptBuffer[0].ts < cutoff) transcriptBuffer.shift(); }catch(e){}
+  }
+  function getTranscriptText(){ return transcriptBuffer.map(t => t.text).join(' '); }
+
+  // Support quick reset via ?reset=1 — clears the session key and reloads without the param
+  try{
+    const _u = new URL(location.href);
+    if(_u.searchParams.get('reset') === '1'){
+      try{ localStorage.removeItem('c1_video_demo_session_v1'); }catch(e){}
+      _u.searchParams.delete('reset');
+      location.replace(_u.toString());
+    }
+  }catch(e){}
+
   let state = loadSession() || {
     v: 2,
     exportedAt: Date.now(),
@@ -493,8 +534,16 @@
   hydrateControls();
   notesEl && (notesEl.value = state.ui.notes || "");
 
-  function showGate(){ gate && (gate.style.display = ""); main && (main.style.display = "none"); updateWatermark(); }
-  function showMain(){ gate && (gate.style.display = "none"); main && (main.style.display = ""); updateWatermark(); applyScenarioUI(); }
+  function showGate(){
+    if(gate){ gate.style.display = ""; if(main) main.style.display = "none"; }
+    else if(main){ main.style.display = ""; }
+    updateWatermark();
+  }
+  function showMain(){
+    if(main){ main.style.display = ""; if(gate) gate.style.display = "none"; }
+    else if(gate){ gate.style.display = ""; }
+    updateWatermark(); applyScenarioUI();
+  }
 
   function updateWatermark(){
     if(!state.invite){ wm.innerHTML = `<div class="muted">Local build</div><div class="muted">${fmt(Date.now())}</div>`; return; }
@@ -566,17 +615,109 @@
     simOn = true; simBtn.textContent = 'Stop simulate'; sensorMsg && (sensorMsg.textContent = 'Simulating mic + motion (perfect for offline video development).'); simLoop();
   });
 
-  function simLoop(){ const t = Date.now() / 1000; const baseMic = 0.20 + 0.18*Math.sin(t*1.8) + 0.06*Math.sin(t*6.2); const baseMot = 0.18 + 0.16*Math.sin(t*1.3 + 1.2) + 0.05*Math.sin(t*4.9); const spike = (Math.sin(t*0.42) > 0.92) ? 0.28 : 0; micLevel = clamp01((baseMic + spike) * state.controls.micGain); motionLevel = clamp01((baseMot + spike*0.7) * state.controls.motionGain); integrity = stream ? 1 : 1; renderLevels(); computeRisk(); rafSim = requestAnimationFrame(simLoop); }
+  function simLoop(){
+    const t = Date.now() / 1000;
+    const baseMic = 0.20 + 0.18*Math.sin(t*1.8) + 0.06*Math.sin(t*6.2);
+    const baseMot = 0.18 + 0.16*Math.sin(t*1.3 + 1.2) + 0.05*Math.sin(t*4.9);
+    const spike = (Math.sin(t*0.42) > 0.92) ? 0.28 : 0;
+    micLevel = clamp01((baseMic + spike) * state.controls.micGain);
+    motionLevel = clamp01((baseMot + spike*0.7) * state.controls.motionGain);
+    integrity = 1; // simulated sensors assume full integrity
+
+    // synthesize prosody for simulate mode so UI shows tone/language indicators
+    const r = Math.random();
+    if(r < 0.6) toneScore = 0.2 + Math.random()*0.18;
+    else if(r < 0.9) toneScore = 0.4 + Math.random()*0.25;
+    else toneScore = 0.75 + Math.random()*0.2;
+
+    // language simulation: low unless demo transcripts added
+    languageScore = classifyLanguage(getTranscriptText());
+
+    renderLevels(); updateV2Transcript(); updateV2Details(); computeRisk(); renderV2();
+    rafSim = requestAnimationFrame(simLoop);
+  }
 
   // sensors button behavior
   sensorBtn && (sensorBtn.onclick = async () => {
     sensorMsg && (sensorMsg.textContent = '');
     if(stream){ stopSensors(); sensorBtn.textContent = 'Try sensors'; permText && (permText.textContent = 'Sensors: off'); integrity = 0; renderLevels(); computeRisk(); return; }
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ sensorMsg && (sensorMsg.textContent = "This browser doesn't support getUserMedia."); return; }
-    try{ stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: 'user' }, audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } }); vid && (vid.srcObject = stream); vid && (vid.style.display = ''); vidPlaceholder && (vidPlaceholder.style.display = 'none'); try{ await vid.play(); }catch{}; const AudioContext = window.AudioContext || window.webkitAudioContext; audioCtx = new AudioContext(); const source = audioCtx.createMediaStreamSource(stream); analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.8; source.connect(analyser); sensorBtn.textContent = 'Stop sensors'; permText && (permText.textContent = 'Sensors: running'); integrity = 1; renderLevels(); micLoop(); motionLoop(); sensorMsg && (sensorMsg.textContent = 'Sensors running. (No recording. No upload.)'); }catch(e){ sensorMsg && (sensorMsg.textContent = 'Sensors blocked (expected on file://). If you want sensors, serve this file on localhost.'); }
+        try{ stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: 'user' }, audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } }); vid && (vid.srcObject = stream); vid && (vid.style.display = ''); vidPlaceholder && (vidPlaceholder.style.display = 'none'); try{ await vid.play(); }catch{}; const AudioContext = window.AudioContext || window.webkitAudioContext; audioCtx = new AudioContext(); const source = audioCtx.createMediaStreamSource(stream); analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.8; source.connect(analyser); sensorBtn.textContent = 'Stop sensors'; permText && (permText.textContent = 'Sensors: running'); integrity = 1; renderLevels(); micLoop(); motionLoop(); sensorMsg && (sensorMsg.textContent = 'Sensors running. (No recording. No upload.)');
+            // Start ASR if available (try Web Speech API as a local fallback if present)
+            try{
+              const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+              if(SpeechRec){
+                asrAvailable = true;
+                try{ asrContinuous && asrContinuous.stop(); }catch(e){}
+                asrContinuous = new SpeechRec();
+                asrContinuous.continuous = true;
+                asrContinuous.interimResults = true;
+                asrContinuous.onresult = (ev)=>{
+                  try{
+                    let interim = '';
+                    let final = '';
+                    for(let i=ev.resultIndex;i<ev.results.length;i++){
+                      const r = ev.results[i]; if(r.isFinal) final += r[0].transcript + ' '; else interim += r[0].transcript + ' ';
+                    }
+                    if(final.trim()){
+                      pushTranscript(final.trim());
+                      // language classifier on final text
+                      languageScore = classifyLanguage(getTranscriptText());
+                    }
+                    // update UI with rolling transcript
+                    updateV2Transcript();
+                  }catch(e){}
+                };
+                asrContinuous.onerror = ()=>{};
+                try{ asrContinuous.start(); }catch(e){}
+              } else {
+                asrAvailable = false;
+                // no ASR available; leave transcript empty
+              }
+            }catch(e){ asrAvailable = false; }
+          }catch(e){ sensorMsg && (sensorMsg.textContent = 'Sensors blocked (expected on file://). If you want sensors, serve this file on localhost.'); }
   });
 
-  function micLoop(){ if(!analyser) return; const data = new Uint8Array(analyser.frequencyBinCount); analyser.getByteTimeDomainData(data); let sumSq = 0; for(let i=0;i<data.length;i++){ const v = (data[i]-128)/128; sumSq += v*v; } const rms = Math.sqrt(sumSq/data.length); micLevel = clamp01(rms * state.controls.micGain * 2.2); renderLevels(); computeRisk(); rafMic = requestAnimationFrame(micLoop); }
+  // Unified micLoop with prosody/VAD features (energy, zcr, spectral roughness)
+  function micLoop(){
+    if(!analyser) return; // analyser may be null if sensors stopped
+    const td = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteTimeDomainData(td);
+    // RMS energy
+    let sumSq = 0;
+    for(let i=0;i<td.length;i++){ const v = (td[i]-128)/128; sumSq += v*v; }
+    const rms = Math.sqrt(sumSq/td.length);
+
+    // zero-crossing rate (pitch proxy)
+    let zc = 0; for(let i=1;i<td.length;i++){ zc += ((td[i-1]-128) * (td[i]-128) < 0) ? 1 : 0; }
+    const zcr = zc / td.length;
+
+    // spectral data
+    const freq = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(freq);
+    // spectral centroid & roughness proxy
+    let num = 0, den = 0; for(let i=0;i<freq.length;i++){ const f = freq[i]; num += i * f; den += f; }
+    const centroid = den ? num/den : 0;
+    // roughness: sum of high-frequency energy fraction
+    let hf = 0; for(let i=Math.floor(freq.length*0.6); i<freq.length; i++){ hf += freq[i]; }
+    const roughness = den ? hf/den : 0;
+
+    // VAD/voice detection
+    const energy = clamp01(rms * 3.0); // scale to 0..1
+    const pitchProxy = clamp01((zcr * 0.5) + (centroid / (freq.length*255)));
+    const spectral = clamp01(roughness);
+
+    // toneScore heuristic: combine energy (voice presence) + pitchProxy + spectral roughness
+    // tuned so calm -> low, aggressive -> high
+    toneScore = clamp01( (energy * 0.6) + (pitchProxy * 0.25) + (spectral * 0.15) );
+
+    // update micLevel and UI-driven levels
+    micLevel = clamp01(rms * state.controls.micGain * 2.2);
+    renderLevels(); computeRisk();
+
+    // schedule next frame
+    rafMic = requestAnimationFrame(micLoop);
+  };
   function motionLoop(){ if(!vid || !stream) return; const ctx = cv.getContext('2d', {willReadFrequently:true}); if(!ctx) return; const w = 96, h = 54; cv.width = w; cv.height = h; try{ ctx.drawImage(vid, 0,0,w,h); const img = ctx.getImageData(0,0,w,h); const curr = img.data; if(lastFrame && lastFrame.length === curr.length){ let diffSum = 0; const stride = 16; for(let i=0;i<curr.length;i+=stride){ const c = (curr[i]+curr[i+1]+curr[i+2])/3; const p = (lastFrame[i]+lastFrame[i+1]+lastFrame[i+2])/3; diffSum += Math.abs(c-p); } const samples = curr.length/stride; const avgDiff = diffSum/samples; motionLevel = clamp01((avgDiff/35) * state.controls.motionGain); } lastFrame = new Uint8ClampedArray(curr); }catch{} renderLevels(); computeRisk(); rafMotion = requestAnimationFrame(motionLoop); }
 
   function stopSensors(){ if(rafMic) cancelAnimationFrame(rafMic); if(rafMotion) cancelAnimationFrame(rafMotion); rafMic=null; rafMotion=null; try{ analyser && analyser.disconnect && analyser.disconnect(); }catch{} analyser=null; try{ audioCtx && audioCtx.close && audioCtx.close(); }catch{} audioCtx=null; if(stream){ stream.getTracks().forEach(t=>t.stop()); } stream=null; lastFrame=null; vid && (vid.srcObject=null); vid && (vid.style.display='none'); vidPlaceholder && (vidPlaceholder.style.display=''); }
@@ -739,8 +880,10 @@
   // --- v2 Render + Interactions ---
   function renderV2(){
     if(!v2State) return;
-    // use script override when present, otherwise live smooth value
-    const effectiveRisk = (scriptOverride !== null) ? clamp01(scriptOverride) : riskSmooth;
+    // use script override when present, otherwise fuse live signals
+    // fuse: effectiveRisk = max(existingRisk*0.25, toneScore*0.85)
+    const baseRisk = (scriptOverride !== null) ? clamp01(scriptOverride) : riskSmooth;
+    const effectiveRisk = Math.max(clamp01(baseRisk * 0.25), clamp01(toneScore * 0.85));
     const rc = riskColor(effectiveRisk);
     // state tiers based on effective risk
     let stateLabel = 'All clear';
@@ -760,6 +903,9 @@
     // try to reuse the analysis card's reason if present
     const analysisWhy = (document.getElementById('insightWhy') && document.getElementById('insightWhy').textContent) || '';
     if(v2Why) v2Why.textContent = analysisWhy.replace(/^Reason:\s*/i, '') || 'Waiting for signal change…';
+
+    // update v2 detail fields for tone/language/transcript
+    try{ updateV2Details(); }catch(e){}
 
     // voice/motion/integrity lines updated in renderLevels();
   }
@@ -790,7 +936,112 @@
   // Expose renderV2 to global for sandbox/test
   window.renderV2 = renderV2;
 
+  // --- v2.1 helpers: language classifier + UI updates ---
+  function classifyLanguage(text){
+    if(!text) return 0;
+    const s = text.toLowerCase();
+    let score = 0;
+    // simple keyword rules
+    const threats = ['kill','hurt','violence','threat','weapon','attack'];
+    const coercion = ['must','have to','you will','or else','last chance','sign now','urgent'];
+    const abuse = ['stupid','idiot','shut up','moron','hate'];
+    threats.forEach(w=>{ if(s.includes(w)) score = Math.max(score, 0.9); });
+    coercion.forEach(w=>{ if(s.includes(w)) score = Math.max(score, 0.7); });
+    abuse.forEach(w=>{ if(s.includes(w)) score = Math.max(score, 0.5); });
+    // pattern: many imperative verbs or caps (rough)
+    const caps = (text.match(/[A-Z]{2,}/g) || []).length;
+    if(caps > 2) score = Math.max(score, 0.6);
+    // normalize
+    return clamp01(score);
+  }
+
+  function updateV2Transcript(){
+    const el = document.getElementById('v2Transcript'); if(!el) return; el.innerHTML = transcriptBuffer.map(t => `<div style="margin-bottom:6px;">${new Date(t.ts).toLocaleTimeString()}: ${t.text}</div>`).join('');
+  }
+
+  function updateV2Details(){
+    const langEl = document.getElementById('v2Language');
+    const toneEl = document.getElementById('v2Tone');
+    const whyEl = document.getElementById('v2Why');
+    if(langEl){ const L = languageScore; langEl.textContent = L >= 0.75 ? 'High' : (L >= 0.4 ? 'Med' : 'Low'); }
+    if(toneEl){ const T = toneScore; toneEl.textContent = T >= 0.7 ? 'Aggressive' : (T >= 0.4 ? 'Pressured' : 'Calm'); }
+    if(whyEl){ let reasons = []; if(languageScore > 0.4) reasons.push('Language indicators'); if(toneScore > 0.4) reasons.push('Prosody pressure'); if(faceScore > 0.3) reasons.push('Face cues'); if(reasons.length===0) reasons.push('No strong indicators'); whyEl.textContent = reasons.join(' • '); }
+  }
+
+  // Transcript toggle
+  const tt = document.getElementById('v2TranscriptToggle'); if(tt){ tt.addEventListener('click', ()=>{ const t = document.getElementById('v2Transcript'); if(!t) return; t.style.display = (t.style.display === 'none' || t.style.display === '') ? 'block' : 'none'; }); }
+
+  // --- VOSK (WASM) hook placeholder ---
+  async function initVoskIfAvailable(){
+    try{
+      if(window.Vosk && typeof window.Vosk.createRecognizer === 'function'){
+        // user will provide Vosk WASM artifact; create recognizer here
+        try{
+          const rec = await window.Vosk.createRecognizer();
+          // expected interface: rec.acceptWaveform(chunk) -> bool, rec.result() -> {text}
+          asrAvailable = true;
+          asrContinuous = { recognizer: rec, feed: async (pcm) => { try{ const ok = await rec.acceptWaveform(pcm); if(ok){ const r = rec.result(); if(r && r.text){ pushTranscript(r.text); languageScore = classifyLanguage(getTranscriptText()); updateV2Transcript(); } } }catch(e){} } };
+        }catch(e){ console.warn('Vosk init failed', e); }
+      }
+    }catch(e){}
+  }
+
+  // --- Demo mode (simulated ASR + language/tone) ---
+  let __demoInterval = null;
+  function startDemoMode(){
+    if(__demoInterval) return;
+    const samples = [
+      'Hey can you sign those documents',
+      'I need you to transfer the funds now',
+      'Please do it or else',
+      'That sounds great, keep me updated',
+      'What do you mean by that?'
+    ];
+    __demoInterval = setInterval(()=>{
+      const txt = samples[Math.floor(Math.random()*samples.length)];
+      pushTranscript(txt);
+      // tone simulation: pick calm or pressured or aggressive
+      const t = Math.random();
+      if(t < 0.6) toneScore = 0.2 + Math.random()*0.2; else if(t < 0.9) toneScore = 0.4 + Math.random()*0.25; else toneScore = 0.75 + Math.random()*0.25;
+      // language simulation based on sample
+      languageScore = classifyLanguage(getTranscriptText());
+      updateV2Transcript(); updateV2Details(); renderV2();
+    }, 1500);
+    document.getElementById('v2DemoBtn') && (document.getElementById('v2DemoBtn').textContent = 'Stop Demo');
+  }
+  function stopDemoMode(){ if(__demoInterval){ clearInterval(__demoInterval); __demoInterval = null; } document.getElementById('v2DemoBtn') && (document.getElementById('v2DemoBtn').textContent = 'Start Demo'); }
+  const demoBtn = document.getElementById('v2DemoBtn'); if(demoBtn){ demoBtn.addEventListener('click', ()=>{ if(__demoInterval) stopDemoMode(); else startDemoMode(); }); }
+
+  // attempt Vosk init (no-network; noop if not provided)
+  try{ initVoskIfAvailable(); }catch(e){}
+
 })();
+</script>
+
+<!-- Visible JS error overlay (rendered when showErr is called) -->
+<div id="v2ErrorOverlay" style="display:none; position:fixed; inset:12px; z-index:9999; padding:12px; border-radius:14px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.18); color:#fff; font:12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow:auto;"></div>
+
+<script>
+  (function(){
+    // post-load safety: if core v2 elements are missing, surface an error and make Reset visible
+    try{
+      const missing = [];
+      ['v2Ring','v2State','v2ActionBtn','v2DetailsToggle'].forEach(id => { if(!document.getElementById(id)) missing.push(id); });
+      if(missing.length){
+        try{ showErr('Missing v2 elements: ' + missing.join(', ')); }catch(e){}
+        const rb = document.getElementById('resetBtn'); if(rb) rb.style.display = '';
+        const main = document.getElementById('main'); if(main) main.style.display = '';
+        const gate = document.getElementById('gate'); if(gate) gate.style.display = '';
+      }
+
+      // Ensure Reset button does a reliable session-clear when clicked
+      const resetBtn = document.getElementById('resetBtn');
+      if(resetBtn){
+        resetBtn.style.display = '';
+        resetBtn.addEventListener('click', ()=>{ try{ localStorage.removeItem('c1_video_demo_session_v1'); }catch(e){}; const u = new URL(location.href); u.searchParams.delete('reset'); location.replace(u.toString()); });
+      }
+    }catch(e){ /* swallow */ }
+  })();
 </script>
 </body>
 </html>
