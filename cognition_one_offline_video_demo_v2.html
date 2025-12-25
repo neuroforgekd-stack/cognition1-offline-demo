@@ -96,17 +96,19 @@
           <button id="v2ActionBtn" class="v2Btn v2Primary">Details</button>
         </div>
 
-        <div class="v2Actions" style="margin-top:8px;">
-          <button id="simBtn" class="v2Btn v2Secondary">Simulate</button>
-          <button id="sensorBtn" class="v2Btn v2Secondary">Sensors</button>
-          <button id="v2DetailsToggle" class="v2Btn v2Secondary">Details</button>
-          <button id="resetBtn" class="v2Btn v2Secondary">Reset</button>
-        </div>
+          <div class="v2Actions" style="margin-top:8px;">
+            <button id="simBtn" class="v2Btn v2Secondary">Simulate</button>
+            <button id="sensorBtn" class="v2Btn v2Secondary">Sensors</button>
+            <button id="v2VoiceToggle" class="v2Btn v2Secondary">Voice: OFF</button>
+            <button id="v2DetailsToggle" class="v2Btn v2Secondary">Details</button>
+            <button id="resetBtn" class="v2Btn v2Secondary">Reset</button>
+          </div>
       </div>
 
       <div id="v2Details">
         <div class="v2DetailsInner" id="v2DetailsInner">
-          <div class="v2Line"><div>Voice intensity</div><div id="v2VoiceLine">Low</div></div>
+            <div class="v2Line"><div>Voice intensity</div><div id="v2VoiceLine">Low</div></div>
+            <div class="v2Line"><div>Voice alerts</div><div id="v2VoiceStatus">Muted</div></div>
           <div class="v2Line"><div>Motion</div><div id="v2MotionLine">Low</div></div>
           <div class="v2Line"><div>Integrity</div><div id="v2IntegrityLine">OK</div></div>
           <div class="v2Line"><div>Why</div><div id="v2Why">Waiting for signal change…</div></div>
@@ -1018,8 +1020,47 @@
 })();
 </script>
 
-<!-- Visible JS error overlay (rendered when showErr is called) -->
-<div id="v2ErrorOverlay" style="display:none; position:fixed; inset:12px; z-index:9999; padding:12px; border-radius:14px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.18); color:#fff; font:12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow:auto;"></div>
+  <!-- Visible JS error overlay (rendered when showErr is called) -->
+  <div id="v2ErrorOverlay" style="display:none; position:fixed; inset:12px; z-index:9999; padding:12px; border-radius:14px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.18); color:#fff; font:12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow:auto;"></div>
+
+  <script>
+  (function(){
+    // Lightweight voice wiring (standalone, robust)
+    let voiceEnabled = false;
+    try{ voiceEnabled = localStorage.getItem('c1_v2_voice') === 'true'; }catch(e){}
+
+    function stopAllSpeech(){ try{ window.speechSynthesis && window.speechSynthesis.cancel && window.speechSynthesis.cancel(); }catch(e){} }
+
+    function pickVoice(){ try{ const vs = (window.speechSynthesis && window.speechSynthesis.getVoices && window.speechSynthesis.getVoices()) || []; return vs.find(v=> /en/i.test(v.lang)) || vs[0] || null; }catch(e){ return null; } }
+
+    function speakOnce(key, text, cooldownMs = 4000){
+      if(!voiceEnabled) return;
+      const now = Date.now();
+      try{ if(window.__c1_lastSpokenAt && (now - window.__c1_lastSpokenAt) < cooldownMs) return; }catch(e){}
+      try{ stopAllSpeech(); const u = new SpeechSynthesisUtterance(text); const v = pickVoice(); if(v) u.voice = v; u.rate = 1.02; u.pitch = 1.0; u.volume = 1.0; window.speechSynthesis.speak(u); window.__c1_lastSpokenAt = now; window.__c1_lastSpokenKey = key; }catch(e){}
+    }
+
+    function primeVoices(){ try{ window.speechSynthesis && window.speechSynthesis.getVoices && window.speechSynthesis.getVoices(); }catch(e){} }
+    if('speechSynthesis' in window){ primeVoices(); try{ window.speechSynthesis.onvoiceschanged = primeVoices; }catch(e){} }
+
+    function setVoiceUI(){ const btn = document.getElementById('v2VoiceToggle'); const line = document.getElementById('v2VoiceLine'); if(btn) btn.textContent = voiceEnabled ? 'Voice: ON' : 'Voice: OFF'; if(line) line.textContent = voiceEnabled ? 'Active' : 'Muted'; }
+    try{ window.updateVoiceUI = setVoiceUI; }catch(e){}
+
+    document.addEventListener('click', function(ev){
+      try{
+        const el = ev.target; if(!el) return; if(el.id !== 'v2VoiceToggle') return;
+        voiceEnabled = !voiceEnabled;
+        try{ localStorage.setItem('c1_v2_voice', voiceEnabled ? 'true' : 'false'); }catch(e){}
+        setVoiceUI();
+        if(voiceEnabled) speakOnce('voice:on','Voice alerts enabled.', 600);
+        else stopAllSpeech();
+        ev.preventDefault();
+      }catch(e){}
+    }, true);
+
+    try{ setVoiceUI(); }catch(e){}
+  })();
+  </script>
 
 <script>
   (function(){
